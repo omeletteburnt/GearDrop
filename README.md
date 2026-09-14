@@ -1,2 +1,2 @@
 # GearDrop
-Basically "Carousel", but for gamers.
+Second-hand marketplace, but for gamers.
