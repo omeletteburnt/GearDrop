@@ -30,6 +30,25 @@ test("browse -> detail -> compare two models in the same category", async ({ pag
   await expect(page.locator(".compare-empty")).toBeVisible();
 });
 
+test("sign-up shows clear validation errors instead of silently doing nothing", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  const authDialog = page.locator('[role="dialog"]').first();
+  await authDialog.getByRole("button", { name: "Need an account? Sign up" }).click();
+
+  // A too-short password used to be silently blocked by the native minLength
+  // constraint, leaving the dialog looking unchanged with no feedback at all.
+  await authDialog.locator('input[name="username"]').fill(`shortpw_${suffix}`);
+  await authDialog.locator('input[name="password"]').fill("abc");
+  await authDialog.getByRole("button", { name: "Create account" }).click();
+  await expect(authDialog.getByRole("alert")).toHaveText(/at least 6 characters/i);
+  await expect(authDialog).toBeVisible(); // did not silently vanish or hang
+
+  // Editing a field should clear the stale error instead of leaving it stuck.
+  await authDialog.locator('input[name="password"]').fill("LongEnough123!");
+  await expect(authDialog.getByRole("alert")).toHaveCount(0);
+});
+
 test("sign-up -> create a listing -> delete it", async ({ page }) => {
   const username = `e2e_flow_${suffix}`;
 
