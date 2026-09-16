@@ -1,5 +1,5 @@
 export type Category = "PC/Laptops" | "Keyboards" | "Mouses" | "Mics" | "Headsets";
-export type Listing = { id: number; name: string; category: Category; price: number; condition: "Like new" | "Good" | "Fair"; status: "Available" | "Reserved" | "Sold"; image: string; description: string; specs: Record<string, string>; missing: string[]; seller: string; posted: string; };
+export type Listing = { id: number; databaseId?: number; ownerId?: string; name: string; category: Category; price: number; condition: "Like new" | "Good" | "Fair"; status: "Available" | "Reserved" | "Sold"; image: string; description: string; specs: Record<string, string>; missing: string[]; seller: string; posted: string; };
 export const categories: { name: Category; icon: string; hint: string }[] = [
   { name: "PC/Laptops", icon: "▣", hint: "GPU, CPU, RAM, storage" }, { name: "Keyboards", icon: "⌨", hint: "switches, layout, size" }, { name: "Mouses", icon: "◉", hint: "weight, sensor, wireless" }, { name: "Mics", icon: "◌", hint: "USB/XLR, pickup pattern" }, { name: "Headsets", icon: "◖", hint: "wired, wireless, platform" }
 ];
