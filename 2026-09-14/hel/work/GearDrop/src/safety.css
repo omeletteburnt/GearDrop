@@ -1,5 +1,5 @@
 .safety-page{min-height:calc(100vh - 76px);background:var(--bg)}
-.safety-hero{padding:92px 7vw 80px;color:var(--paper);background:radial-gradient(60% 70% at 82% 18%,rgba(224,162,76,.16),transparent 60%),var(--void)}
+.safety-hero{padding:92px 7vw 80px;color:var(--paper);background:radial-gradient(60% 70% at 82% 18%,rgba(185,138,255,.18),transparent 60%),var(--void)}
 .safety-hero h1{font-size:clamp(40px,5.6vw,64px);line-height:1.04}
 .safety-hero p:not(.eyebrow){max-width:480px;line-height:1.6;font-size:17px;color:#cfc7e6}
 .safety-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-3);padding:42px 7vw;background:var(--surface-2)}

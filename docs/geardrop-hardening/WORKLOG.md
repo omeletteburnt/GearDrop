@@ -529,3 +529,22 @@ Kept a `isLocalError` ref to distinguish "local validation message that should b
 **New leftover test accounts**: `welcometest_probe@example.com` and `weaktest_probe@example.com` (created while probing the live Auth API directly), plus `welcometest_verify@example.com` (created during live UI verification) — added to the batch of test-data cleanup items.
 
 **Next action:** Report to user; awaiting commit/push direction (push auto-deploys, as established).
+
+---
+
+## 2026-09-17 — Session 1 (continued) — Design: purple accent swap + hero starfield
+
+**Request:** swap the brass/amber accent to purple, and add "gamer-like" background atmosphere to just the hero section (above "Shop by setup").
+
+**What changed:**
+- `tokens.css`: swapped `--brass`/`--brass-strong`/`--brass-ink`/`--brass-soft` from amber to purple (light theme: `#6d3cc7`/`#7d50d7`/`#6d3cc7`; dark theme: `#b98aff`/`#c199ff`/`#b98aff`), all contrast-verified computationally before applying, same rigor as the earlier brass work. Added a new `--on-accent` token (white in light theme, near-black-purple in dark theme) replacing 8 places that hardcoded `#1a1200` (a color tuned for amber fills, wrong pairing for purple).
+- **Hit the same class of bug as the original brass fix, caught before shipping**: a single purple value can't serve as both "text on light surfaces" and "text on the permanently-dark hero/nyx/safety-hero sections" — verified via axe, which caught 2 real violations (nyx eyebrow and example link at 2.87/2.64 contrast against the dark void). Added a new `--accent-on-dark` token (`#b98aff`, theme-invariant since those sections stay dark regardless of theme) and re-routed every dark-section text usage to it: `.hero .eyebrow`/`.nyx .eyebrow`/`.safety-hero .eyebrow`, `.hero i`, `.nyx .example`, `.mini-nyx`, `.antenna`, and the `.compare-nyx textarea` focus outline.
+- Swapped remaining hardcoded amber `rgba()` tints to purple equivalents: `.nyx-answer` background/border, `.safety-hero` glow, `.nyx-mascot` box-shadow and `.glow` (mouth glow, brightened for actual visibility against the dark mascot body rather than reusing the same low-opacity tint used for light-surface badges).
+- Regenerated `favicon.svg` and `og-image.png` with the purple accent for full brand consistency (not strictly asked, but they're the same "accent color" the request was about).
+- **Hero starfield**: added a `.hero::after` layer (tiled dot pattern, two densities, white + purple-tinted) alongside the existing radial glow in `.hero::before`, scoped only to `.hero` per the request — the Nyx/space identity already leans sci-fi, so this reads as "gamer atmosphere" without introducing an unrelated generic gaming trope. Purely decorative, no motion, no reduced-motion concern.
+
+**Tests run and results:** `pnpm build` clean throughout. Full `pnpm test`: **23 Vitest + 14 Playwright (37 total)**, all green after the `--accent-on-dark` fix, re-run twice for stability. Real visual verification via the browser tools across light theme, dark theme, and the Nyx section mid-scroll-reveal — confirmed the accent reads consistently and legibly everywhere, and the starfield is present only in the hero as requested.
+
+**Self-review (OWASP-frame):** Pure visual/branding change; the only substantive risk was the reintroduced light-surface-vs-dark-surface contrast trap, caught by the same automated axe suite that caught it the first time — validating that the test investment from Phase 9 continues to pay for itself on unrelated future changes, exactly as intended.
+
+**Next action:** Report to user; awaiting commit/push direction (push auto-deploys, as established).

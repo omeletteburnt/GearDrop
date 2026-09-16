@@ -1,10 +1,10 @@
-.nyx-mascot{width:104px;height:104px;margin:-66px auto 14px;border-radius:44% 44% 48% 48%;background:linear-gradient(145deg,var(--brass-strong),var(--void));position:relative;border:4px solid var(--surface);box-shadow:0 0 0 8px rgba(224,162,76,.18),0 15px 35px rgba(18,5,34,.45);animation:nyx-bob 6s ease-in-out infinite}
+.nyx-mascot{width:104px;height:104px;margin:-66px auto 14px;border-radius:44% 44% 48% 48%;background:linear-gradient(145deg,var(--brass-strong),var(--void));position:relative;border:4px solid var(--surface);box-shadow:0 0 0 8px rgba(185,138,255,.22),0 15px 35px rgba(18,5,34,.45);animation:nyx-bob 6s ease-in-out infinite}
 .nyx-mascot:before{content:"";position:absolute;inset:14px 11px 17px;border-radius:45%;background:var(--void)}
 .nyx-mascot .eye{position:absolute;top:40px;width:14px;height:20px;border-radius:50%;background:var(--paper);box-shadow:0 0 10px rgba(255,255,255,.6)}
 .nyx-mascot .left{left:29px}
 .nyx-mascot .right{right:29px}
-.antenna{position:absolute;left:41px;top:-29px;color:var(--brass);font-size:28px;animation:nyx-spark 2.4s ease-in-out infinite}
-.glow{position:absolute;width:25px;height:7px;border-radius:99px;background:var(--brass-soft);left:36px;bottom:21px}
+.antenna{position:absolute;left:41px;top:-29px;color:var(--accent-on-dark);font-size:28px;animation:nyx-spark 2.4s ease-in-out infinite}
+.glow{position:absolute;width:25px;height:7px;border-radius:99px;background:rgba(185,138,255,.35);left:36px;bottom:21px}
 .nyx-panel:hover .nyx-mascot{animation-duration:3.2s}
 @keyframes nyx-bob{50%{translate:0 -6px}}
-@keyframes nyx-spark{50%{scale:1.15;filter:drop-shadow(0 0 6px var(--brass))}}
+@keyframes nyx-spark{50%{scale:1.15;filter:drop-shadow(0 0 6px var(--accent-on-dark))}}
