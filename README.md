@@ -7,6 +7,7 @@
 > effort, including why this decision was made and what state work is in.
 
 THIS IS AN UNFINISHED DEMO.
+
 GearDrop is a website where all casual-competitive gamers come together and buy/sell off gaming equipment to other fellow gamers.
 The Game Industry sustains a big market, and I believe this website can actually give gamers a second alternative for seeking gaming equipment.
 
