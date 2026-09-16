@@ -23,7 +23,7 @@ Second-hand marketplace, but for gamers.
 - Search bar and category filters.
 - 22 demo product listings with product photos, prices, conditions, stock status, specs, and missing-information notices.
 - Product detail pop-up for each listing.
-- “Ask Nyx” AI assistant for general gear guidance and product-specific questions.
+- “Ask Nyx" assistant for general gear guidance and product-specific questions.
 - Requirement-based recommendations that update when users describe what they need.
 - Alternative recommendations with explanations of why Nyx picked them.
 - Missing listing information warnings.
