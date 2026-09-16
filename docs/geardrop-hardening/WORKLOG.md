@@ -548,3 +548,23 @@ Kept a `isLocalError` ref to distinguish "local validation message that should b
 **Self-review (OWASP-frame):** Pure visual/branding change; the only substantive risk was the reintroduced light-surface-vs-dark-surface contrast trap, caught by the same automated axe suite that caught it the first time — validating that the test investment from Phase 9 continues to pay for itself on unrelated future changes, exactly as intended.
 
 **Next action:** Report to user; awaiting commit/push direction (push auto-deploys, as established).
+
+---
+
+## 2026-09-17 — Session 1 (continued) — Hero image-strip background (gaming-gear collage, purple duotone)
+
+**Request:** add a background effect to the hero (only, per follow-up clarification: "top section before Shop by setup") inspired by a reference image showing tall rectangular strips of gaming key art forming a moody collage.
+
+**Flagged before building:** the reference used actual Valorant/CS:GO/etc. key art, which is copyrighted/trademarked material owned by the respective publishers — reproducing it on a live commercial-feeling site is a real IP risk, not just a style question. Asked the user how to proceed; they chose reusing gaming-peripheral/setup photography (royalty-free, same Unsplash source already used site-wide) over custom abstract vector art.
+
+**What changed (`src/main.tsx`, `src/styles.css`):**
+- Added `.hero-strips`, a row of 7 tall `<img>` strips (`flex:1` each) using photo IDs already confirmed working elsewhere in the codebase (headset/mic/mouse/keyboard photos from `data.ts` listings) — no new external image sources introduced, `aria-hidden="true"` since it's purely decorative.
+- Positioned as a background layer (`position:absolute;inset:0;z-index:0`) behind the existing radial glow, starfield dots, and foreground content — required re-numbering the hero's stacking order (`z-index:2` for real content, `1` for the glow/dot pseudo-elements, `0` for the strips) since they're now three distinct layers instead of two.
+- Strips get a purple duotone via CSS `filter` (grayscale → sepia → hue-rotate → saturate), tuned through two visual iterations (checked with real screenshots, not guessed) — the first pass was too bright/saturated and competed with the foreground tagged product photos; darkened further and extended the existing left-to-right dark gradient (already used to keep the headline legible) to cover more of the strip layer.
+- Everything else in the hero (headline, CTA, existing tagged product-photo collage, starfield) is unchanged.
+
+**Tests run and results:** `pnpm build` clean. Full `pnpm test`: **23 Vitest + 14 Playwright (37 total)**, all green including all 4 axe accessibility audits — confirms the new background layer doesn't regress text contrast. Re-run twice for stability. Visually verified via the browser tools across two brightness iterations before settling on the final treatment.
+
+**Self-review (OWASP-frame):** Pure visual change, no logic/security surface touched. The one real risk in this task was IP/copyright, not code — addressed by not reproducing the reference's actual copyrighted source material and confirming the substitute approach with the user first rather than assuming.
+
+**Next action:** Report to user; awaiting commit/push direction (push auto-deploys, as established).
