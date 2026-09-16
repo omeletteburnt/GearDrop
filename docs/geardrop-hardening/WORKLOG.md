@@ -453,4 +453,31 @@
 
 **Self-review (OWASP-frame):** Another usability/reliability fix, not a security boundary change. **Not handled**: no way to test actual OS-level password-manager autofill (1Password, Bitwarden, etc.) in this automated suite — the fix targets the documented `:autofill`/`:-webkit-autofill` CSS pseudo-class mechanism that these tools also trigger through the browser's native autofill API, but hasn't been manually verified against a specific third-party password manager extension.
 
-**Next action:** Awaiting user confirmation this resolves what they saw, then commit/push per their direction (push auto-deploys, as previously flagged).
+**Next action (superseded, see below):** ~~awaiting confirmation~~ — user asked to add email-based sign-up as a feature.
+
+---
+
+## 2026-09-17 — Session 1 (continued) — Feature: username-or-email sign-in
+
+**Context:** User asked to add email-based registration, prompted by a (mistaken, on inspection) theory that a username validation error might be displaying as a password error. Checked the actual code first — the two validation checks are field-isolated `if` statements, no path for that misattribution exists. Treated the email-signup ask as a genuine, separate feature request and asked a clarifying design question before building, since it changes the auth architecture documented in `FEATURE-BRIEF.md`'s "Auth quirk" section.
+
+**Design decision (user's choice):** support sign-in via *either* username or email, not a straight replacement. This requires resolving a username to its real email before calling Supabase's `signInWithPassword` — but `profiles` is intentionally public-readable (username only) and must never gain an email column, per the original security brief. Solution: a narrow `SECURITY DEFINER` Postgres function (`email_for_username`, new `supabase-email-lookup.sql`) that looks up `auth.users.email` (never exposed via the REST API otherwise) by username and returns only that string.
+
+**What changed:**
+- `src/supabase.ts`: removed the `identity()` username→fake-email synthesis (no longer needed for new signups); added `isEmailLike()`; `signUp(username, email, password)` now uses the real email directly; `signIn(identifier, password)` resolves username-or-email transparently via the new RPC. Fixed a related correctness issue while restructuring: `signIn` previously always called `ensureProfile()` with whatever was typed to log in — safe when that was always a username, but would have silently overwritten a real username with an email string once email-based sign-in existed. Now only self-heals the profile when the identifier used to sign in was a username, never an email.
+- `friendlyAuthError()`: "already registered" now reads "That email is already registered" (previously said "username," inaccurate now that emails are real and enforce their own uniqueness).
+- `src/main.tsx` `Auth` component: sign-up now collects Username + Email + Password; sign-in collects a single "Username or email" field + Password. Added client-side email-format validation on sign-up.
+- New `supabase-email-lookup.sql`: the lookup function, with its security rationale and accepted residual risk (see below) documented inline — **the user ran this in the Supabase SQL editor** (no DB write access from this session).
+
+**Explicitly flagged residual risk (not hidden):** `email_for_username` is necessarily an oracle — given any username, it reveals whether an account exists and, if so, its real email. This is a deliberate trade-off for supporting username-based sign-in; it extends the enumeration exposure the site already had (via the "username already taken" signup error) to also leak the associated email string, with no rate limiting (no serverless proxy layer exists in this client-only SPA). Documented as acceptable for this project's threat model (a demo marketplace), explicitly flagged as something to revisit before this pattern is reused anywhere more sensitive.
+
+**Tests added** (`tests/e2e/critical-flows.spec.ts`): sign-up-then-sign-in-with-email (doesn't need the new RPC, tests the direct-email path), and sign-up-then-sign-in-with-username (exercises the RPC end to end). Updated the three existing sign-up-completing tests to fill the new required email field.
+
+**Tests run and results:**
+- Before the user ran the SQL: `pnpm test` → 13/14 Playwright tests passed; the username-sign-in test failed exactly as expected with "No account found with that username or email," correctly identifying the missing RPC rather than a real app bug (confirmed the RPC didn't exist yet via a direct REST probe first).
+- After the user ran the SQL: re-probed the RPC directly (returned `null` for an unknown username, correct), then re-ran the full suite: **20 Vitest + 14 Playwright (34 total), all green**, re-run twice for stability.
+- Also visually verified both forms via real Playwright screenshots (not just automated assertions) — sign-in shows "Username or email," sign-up shows Username/Email/Password with the real-email rationale copy.
+
+**Self-review (OWASP-frame):** Primarily addresses API2:2023-adjacent broken-authentication ergonomics (real recoverable accounts vs. unrecoverable synthesized ones) while introducing one new, explicitly-documented enumeration/oracle risk (the lookup function) — a deliberate, disclosed trade-off rather than a silently-accepted one. Also fixed a genuine data-integrity bug found during the refactor (profile-clobbering on email-based sign-in) before it ever shipped. **Not handled**: no rate limiting on the new RPC; no password-reset flow yet exists to make the "real email" actually useful for account recovery (still the same documented gap from Phase 3.3) — collecting a real email is a necessary precondition for that but doesn't build it.
+
+**Next action:** Report to user; awaiting commit/push direction (push auto-deploys, as established).
