@@ -84,12 +84,51 @@ function Recommendation({item,onOpen}:{item:Listing;onOpen:(item:Listing)=>void}
 function Detail({item,close,compare,choose,canDelete,requestDelete}:{item:Listing;close:()=>void;compare:Listing[];choose:(item:Listing)=>void;canDelete:boolean;requestDelete:()=>void}){const[q,setQ]=useState("");const[a,setA]=useState("");const wrongCategory=compare.length===1&&compare[0].category!==item.category;const ref=useRef<HTMLDivElement>(null);useModalA11y(ref,close);return <div className="overlay" onMouseDown={overlayClick(close)}><div className="detail" ref={ref} role="dialog" aria-modal="true" aria-label={item.name}><button className="close" onClick={close} aria-label="Close">×</button><img src={safeImageUrl(item.image)} onError={onImgError} alt={item.name}/><div><p className="eyebrow">{item.category} · {item.status}</p><h2>{item.name}</h2><p className="price">$ {item.price}</p><p>{item.description}</p><div className="specs">{Object.entries(item.specs).map(([key,value])=><div key={key}><small>{key}</small><b>{value}</b></div>)}</div>{item.missing.length>0&&<div className="missing"><b>Nyx noticed missing information</b><p>Ask the seller about: {item.missing.join(", ")}.</p></div>}<div className="ask-product"><b>Ask Nyx about this listing</b><div><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Is this good for competitive gaming?"/><button onClick={()=>setA(q?(item.missing.length?"It may suit your needs, but confirm "+item.missing.join(" and ")+" first.":"It is a well-documented second-hand listing; compare its listed specs with your needs."):"Type a question for Nyx.")}>Ask</button></div>{a&&<p className="nyx-answer">✦ {a}</p>}</div><button className="btn primary">Message {item.seller}</button><button className="btn secondary compare-button" disabled={wrongCategory} onClick={()=>choose(item)}>{wrongCategory?`Choose another ${compare[0].category} model`:`Compare models${compare.length===1?" with selected model":""}`}</button>{canDelete&&<button className="btn destructive" onClick={requestDelete}>Delete listing</button>}</div></div></div>;}
 function DeleteConfirm({cancel,confirm}:{cancel:()=>void;confirm:()=>void}){const ref=useRef<HTMLElement>(null);useModalA11y(ref,cancel);return <div className="overlay" onMouseDown={overlayClick(cancel)}><section className="delete-confirm" ref={ref} role="dialog" aria-modal="true" aria-label="Delete listing confirmation"><h2>Are you sure you want to delete your listing</h2><p>This cannot be undone.</p><div><button className="btn secondary" onClick={cancel}>No</button><button className="btn destructive" onClick={confirm}>Yes</button></div></section></div>}
 function Sell({close,submit}:{close:()=>void;submit:(e:FormEvent<HTMLFormElement>)=>void}){const ref=useRef<HTMLDivElement>(null);useModalA11y(ref,close);return <div className="overlay" onMouseDown={overlayClick(close)}><div className="sell-form" ref={ref} role="dialog" aria-modal="true" aria-label="Create a listing"><form onSubmit={submit}><button type="button" className="close" onClick={close} aria-label="Close">×</button><p className="eyebrow">CREATE A LISTING</p><h2>Drop your gear</h2><p className="muted">It will persist after refresh.</p><label>Seller username<input name="seller" required placeholder="Your username"/></label><label>Product name<input name="name" required placeholder="e.g. Logitech G305"/></label><label>Category<select name="category">{categories.map(c=><option key={c.name}>{c.name}</option>)}</select></label><div className="form-row"><label>Price (USD)<input name="price" type="number" min="1" required/></label><label>Condition<select name="condition"><option>Like new</option><option>Good</option><option>Fair</option></select></label></div><label>Description<textarea name="description" required placeholder="Condition, accessories and buyer notes."/></label><label>Key specifications<input name="details" placeholder="Wireless, 63 g, original box..."/></label><button className="btn primary submit">Publish listing →</button></form></div></div>;}
+// Returns a local validation error, or "" if the given values are all valid.
+// Pulled out of submit() so the same check can run reactively on a poll (see
+// below) as well as at submit time.
+function localAuthError(mode:"in"|"up",identifier:string,email:string,password:string):string{
+  if(mode==="in"&&identifier.length<3)return"Enter your username or email.";
+  if(mode==="up"){
+    if(identifier.length<3)return"Username must be at least 3 characters.";
+    if(!isEmailLike(email))return"Enter a valid email address.";
+  }
+  if(password.length<6)return"Password must be at least 6 characters.";
+  return"";
+}
+
 function Auth({close,complete}:{close:()=>void;complete:(s:Session)=>void}){
   const[mode,setMode]=useState<"in"|"up">("in");
   const[message,setMessage]=useState("");
   const[submitting,setSubmitting]=useState(false);
-  const clear=()=>message&&setMessage("");
-  const onAutofill=(e:{animationName:string})=>e.animationName==="autofill-detect"&&clear();
+  const isLocalError=useRef(false);
+  const formRef=useRef<HTMLFormElement>(null);
+
+  // Browser autofill, password-manager extensions, and "suggest a strong
+  // password" all set an input's value in ways that don't reliably fire any
+  // single JS event React can listen for — onChange misses plain autofill,
+  // and even the :-webkit-autofill/animationstart trick only fires once per
+  // field, so a second autofill (or a password suggestion filled through a
+  // different code path) can leave a stale *local* validation error on
+  // screen indefinitely. Rather than chase every possible event, poll the
+  // form's actual live values while a local error is showing and clear it
+  // the moment it's no longer true — this is correct regardless of *how*
+  // the fields changed. Server-side errors (wrong password, already
+  // registered, etc.) are deliberately left alone here; they should persist
+  // until the next real submit, not be silently cleared by a poll.
+  useEffect(()=>{
+    if(!message||!isLocalError.current)return;
+    const id=setInterval(()=>{
+      const form=formRef.current;
+      if(!form)return;
+      const f=new FormData(form);
+      const stillInvalid=localAuthError(mode,String(f.get("identifier")||"").trim(),String(f.get("email")||"").trim(),String(f.get("password")||""));
+      if(stillInvalid!==message)setMessage(stillInvalid);
+    },250);
+    return()=>clearInterval(id);
+  },[message,mode]);
+
+  function clear(){if(isLocalError.current&&message)setMessage("");}
 
   async function submit(e:FormEvent<HTMLFormElement>){
     e.preventDefault();
@@ -101,22 +140,18 @@ function Auth({close,complete}:{close:()=>void;complete:(s:Session)=>void}){
     // minLength/required constraints used to block the submit event entirely
     // before our handler ever ran, leaving stale messages on screen with no
     // feedback that the click did nothing).
-    if(mode==="in"&&identifier.length<3){setMessage("Enter your username or email.");return;}
-    if(mode==="up"){
-      const username=identifier;
-      if(username.length<3){setMessage("Username must be at least 3 characters.");return;}
-      if(!isEmailLike(email)){setMessage("Enter a valid email address.");return;}
-    }
-    if(password.length<6){setMessage("Password must be at least 6 characters.");return;}
+    const localError=localAuthError(mode,identifier,email,password);
+    if(localError){isLocalError.current=true;setMessage(localError);return;}
+    isLocalError.current=false;
     setMessage("");
     setSubmitting(true);
     try{
       const session=mode==="in"?await signIn(identifier,password):await signUp(identifier,email,password);
       if(!session)throw new Error("Account created. Please try to log in.");
       complete(session);close();
-    }catch(error){setMessage(error instanceof Error?error.message:"Sign-in failed.");}
+    }catch(error){isLocalError.current=false;setMessage(error instanceof Error?error.message:"Sign-in failed.");}
     finally{setSubmitting(false);}
   }
   const ref=useRef<HTMLDivElement>(null);useModalA11y(ref,close);
-  return <div className="overlay" onMouseDown={overlayClick(close)}><div className="sell-form" ref={ref} role="dialog" aria-modal="true" aria-label={mode==="in"?"Sign in":"Create account"}><form onSubmit={submit} noValidate><button type="button" className="close" onClick={close} aria-label="Close">×</button><p className="eyebrow">NYX ACCOUNT</p><h2>{mode==="in"?"Welcome back":"Create account"}</h2><p className="muted">{mode==="in"?"Sign in with your username or email.":"A real email is required so you can recover your account."}</p><label>{mode==="in"?"Username or email":"Username"}<input name="identifier" onChange={clear} onAnimationStart={onAutofill}/></label>{mode==="up"&&<label>Email<input name="email" type="email" onChange={clear} onAnimationStart={onAutofill}/></label>}<label>Password<input name="password" type="password" onChange={clear} onAnimationStart={onAutofill}/></label>{message&&<p className="field-error" role="alert">{message}</p>}<button className="btn primary submit" disabled={submitting}>{submitting?"Please wait…":mode==="in"?"Sign in":"Create account"}</button><button type="button" className="example" onClick={()=>{setMode(mode==="in"?"up":"in");setMessage("");}}>{mode==="in"?"Need an account? Sign up":"Already have an account? Sign in"}</button></form></div></div>;}
+  return <div className="overlay" onMouseDown={overlayClick(close)}><div className="sell-form" ref={ref} role="dialog" aria-modal="true" aria-label={mode==="in"?"Sign in":"Create account"}><form ref={formRef} onSubmit={submit} noValidate><button type="button" className="close" onClick={close} aria-label="Close">×</button><p className="eyebrow">NYX ACCOUNT</p><h2>{mode==="in"?"Welcome back":"Create account"}</h2><p className="muted">{mode==="in"?"Sign in with your username or email.":"A real email is required so you can recover your account."}</p><label>{mode==="in"?"Username or email":"Username"}<input name="identifier" onChange={clear}/></label>{mode==="up"&&<label>Email<input name="email" type="email" onChange={clear}/></label>}<label>Password<input name="password" type="password" onChange={clear}/></label>{message&&<p className="field-error" role="alert">{message}</p>}<button className="btn primary submit" disabled={submitting}>{submitting?"Please wait…":mode==="in"?"Sign in":"Create account"}</button><button type="button" className="example" onClick={()=>{setMode(mode==="in"?"up":"in");isLocalError.current=false;setMessage("");}}>{mode==="in"?"Need an account? Sign up":"Already have an account? Sign in"}</button></form></div></div>;}
 createRoot(document.getElementById("root")!).render(<App/>);

@@ -60,16 +60,6 @@
 
 .field-error{color:var(--bad);font-size:12.5px;margin:6px 0 0;}
 
-/* Browser/password-manager autofill often sets an input's value without ever
-   firing a React-visible "input"/"change" event, so onChange-based UI (like
-   clearing a stale validation error) silently never runs for autofilled
-   fields. This is the standard cross-browser workaround: autofill triggers
-   the :-webkit-autofill/:autofill pseudo-class, which we bind a harmless
-   keyframe to purely so its animationstart event gives JS a hook. */
-@keyframes autofill-detect{from{opacity:1}to{opacity:1}}
-input:-webkit-autofill{animation-name:autofill-detect;animation-duration:1ms;}
-input:autofill{animation-name:autofill-detect;animation-duration:1ms;}
-
 @media (prefers-reduced-motion: reduce){
   *{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;scroll-behavior:auto !important;}
 }

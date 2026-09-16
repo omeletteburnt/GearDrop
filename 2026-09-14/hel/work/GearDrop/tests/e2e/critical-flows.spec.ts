@@ -50,15 +50,17 @@ test("sign-up shows clear validation errors instead of silently doing nothing", 
   await expect(authDialog.getByRole("alert")).toHaveCount(0);
 });
 
-test("stale error clears on browser autofill, not just manual typing", async ({ page }) => {
-  // Browser/password-manager autofill sets an input's value via the native
-  // setter without dispatching the events React's onChange listens for, so
-  // a naive onChange-only clear leaves a stale error on screen even though
-  // the field now holds a valid value. Playwright can't trigger real browser
-  // autofill, so this reproduces the exact mechanism: set the value the way
-  // autofill does (native setter, no input/change event), then fire the
-  // animationstart event our CSS-based autofill-detection hook listens for
-  // (see tokens.css's :-webkit-autofill keyframe), and confirm it recovers.
+test("stale error clears even when the field changes with zero JS events", async ({ page }) => {
+  // Browser autofill, password managers, and "suggest a strong password"
+  // all set an input's value in ways that don't reliably fire any single
+  // event type React can hook into — and a CSS-animation-based detection
+  // trick (tried previously) only fires once per field, so a *second*
+  // silent change (e.g. a password suggestion filled through a different
+  // path than the email autofill) still leaves a stale error stuck. The
+  // fix polls the form's live values instead of depending on any event at
+  // all, so this test reproduces the worst case directly: change the value
+  // via the native setter and dispatch NOTHING — no input, change, or
+  // animation event whatsoever — and confirm the stale error still clears.
   await page.goto("/");
   await page.getByRole("button", { name: "Sign in" }).click();
   const authDialog = page.locator('[role="dialog"]').first();
@@ -73,9 +75,9 @@ test("stale error clears on browser autofill, not just manual typing", async ({ 
     const input = document.querySelector('input[name="password"]') as HTMLInputElement;
     const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")!.set!;
     setter.call(input, "AutofilledPassword123!");
-    input.dispatchEvent(new AnimationEvent("animationstart", { animationName: "autofill-detect", bubbles: true }));
+    // Deliberately no dispatchEvent call of any kind.
   });
-  await expect(authDialog.getByRole("alert")).toHaveCount(0);
+  await expect(authDialog.getByRole("alert")).toHaveCount(0, { timeout: 2000 });
 });
 
 test("sign-up -> create a listing -> delete it", async ({ page }) => {
