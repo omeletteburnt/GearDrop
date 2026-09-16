@@ -423,4 +423,16 @@
 
 **Self-review (OWASP-frame):** The sign-up fix closes a real usability/reliability defect (not a security one) — the account was actually being created server-side in the broken case some of the time, but the UI gave the user no way to know that, which could lead to duplicate signup attempts or abandoned accounts. **Not handled**: the Vercel auto-deploy behavior discovery means recent pushes have already gone live without an explicit deploy conversation — flagging this prominently to the user rather than treating it as routine, since the working method calls for deploys to be proposed and confirmed individually.
 
-**Next action:** Report the auto-deploy discovery and the bug fix to the user clearly. Awaiting direction — since the fix is already live via auto-deploy, likely just needs confirmation this is acceptable going forward, plus a decision on whether to disable Vercel's auto-deploy-on-push if that's not the desired workflow.
+**Next action (superseded, see below):** ~~awaiting direction~~ — user said "commit and push it."
+
+---
+
+## 2026-09-16 — Session 1 (continued) — Committed, pushed, deployed, live-verified
+
+**What happened:** Committed the sign-up fix + animation additions (`4f05815`, "Fix sign-up validation feedback and add scroll/hover motion"). Fetched first to check for remote divergence (none this time) before pushing. Pushed to `origin/main`, which — per the auto-deploy behavior discovered earlier this session — triggered a new Vercel production build automatically. Polled the live site (via a backgrounded Monitor task, not manual sleeping) until its served bundle hash matched the new local build exactly, confirming the deploy completed.
+
+**Final live verification:** Rather than trust the bundle-hash match alone, re-ran the exact short-password reproduction against the **live production site** using the browser tools: filled a fresh username with a 3-character password, clicked "Create account," and confirmed "Password must be at least 6 characters." now renders immediately in the dialog — the fix is live and confirmed working in production, not just locally. No test account was created this time (validation now blocks the network call from firing at all on invalid input), so no new Supabase cleanup item was added.
+
+**Current state:** `origin/main` at `4f05815`, live production deployment matches. Working tree clean.
+
+**Next action:** None planned. Remaining open items are all in `ASSUMPTIONS.md` (key rotations, Supabase test-data cleanup, CI/staging-project decision) and require user action, not further code changes.
