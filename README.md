@@ -1,11 +1,24 @@
 # GearDrop
-Second-hand marketplace, but for gamers.
 THIS IS AN UNFINISHED DEMO.
-
 GearDrop is a website where all casual-competitive gamers come together and buy/sell off gaming equipment other fellow gamers have.
 The Game Industry sustains a big market, and I believe this website can actually give gamers a second alternative to gaming equipment.
 
-My GearDrop website currently includes:
+# TECH-STACK:
+
+- Frontend: React + TypeScript
+- Build tool/dev server: Vite
+- Styling: Custom CSS (no UI framework)
+- Database and authentication: Supabase
+  - Supabase Auth for username/password sign-in
+  - Supabase PostgreSQL for user profiles, listings, and admin permissions
+  - Row Level Security policies for seller/admin permissions
+- Hosting/deployment: Vercel
+- Source control: GitHub
+- Product images: external image URLs, mainly Unsplash and selected product image sources
+Second-hand marketplace, but for gamers.
+
+
+# My GearDrop website currently includes:
 - Gaming marketplace for PC/Laptops, Keyboards, Mouses, Mics, and Headsets.
 - Search bar and category filters.
 - 22 demo product listings with product photos, prices, conditions, stock status, specs, and missing-information notices.
