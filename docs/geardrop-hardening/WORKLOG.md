@@ -568,3 +568,17 @@ Kept a `isLocalError` ref to distinguish "local validation message that should b
 **Self-review (OWASP-frame):** Pure visual change, no logic/security surface touched. The one real risk in this task was IP/copyright, not code — addressed by not reproducing the reference's actual copyrighted source material and confirming the substitute approach with the user first rather than assuming.
 
 **Next action:** Report to user; awaiting commit/push direction (push auto-deploys, as established).
+
+---
+
+## 2026-09-17 — Session 1 (continued) — Hero texture: dots → animated wind-flow streaks
+
+**Request:** replace the dot-grid texture layer with a "wind flow" look.
+
+**What changed (`src/styles.css`):** replaced `.hero::after`'s radial-gradient dot pattern with two layered `repeating-linear-gradient`s at a shallow diagonal angle (98deg) — thin white streaks plus wider, more visible purple streaks at a different spacing/opacity, reading as directional motion lines rather than a static grid. Added a slow (16s, linear, infinite) background-position drift so the streaks visibly flow across the hero, gated behind `@media (prefers-reduced-motion: no-preference)` matching the pattern already used for the scroll-reveal animation — reduced-motion users get the static streak pattern with no drift, never nothing.
+
+**Tests run and results:** `pnpm build` clean. Full `pnpm test`: **23 Vitest + 14 Playwright (37 total)**, all green — the axe suite runs with `reducedMotion: "reduce"` by design (from the earlier stale-error work), so its pass implicitly confirms the reduced-motion fallback renders correctly too, not just the animated default. Visually confirmed the drift is actually animating via two screenshots a couple seconds apart (streak positions visibly shifted).
+
+**Self-review (OWASP-frame):** Pure visual change, no logic/security surface touched.
+
+**Next action:** Report to user; awaiting commit/push direction (push auto-deploys, as established).
