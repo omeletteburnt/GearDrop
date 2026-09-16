@@ -22,13 +22,27 @@ export function onSessionChange(callback: (session: Session | null) => void) {
   return () => data.subscription.unsubscribe();
 }
 
-const identity = (username: string) => `${username.trim().toLowerCase().replace(/[^a-z0-9_]/g, "")}@nyx.local`;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const isEmailLike = (value: string) => EMAIL_RE.test(value.trim());
+
+// Legacy accounts created before real-email sign-up existed still have a
+// synthesized "username@nyx.local" address on file in auth.users — nothing
+// needs to migrate, since email_for_username() just returns whatever email
+// is actually on record, real or synthesized, and Supabase doesn't care
+// which as long as it matches at sign-in time.
+async function resolveEmailForIdentifier(identifier: string): Promise<string | null> {
+  const trimmed = identifier.trim();
+  if (isEmailLike(trimmed)) return trimmed.toLowerCase();
+  const { data, error } = await supabase.rpc("email_for_username", { lookup_username: trimmed });
+  if (error || !data) return null;
+  return data as string;
+}
 
 // Known Supabase Auth error messages are re-worded so raw provider text
 // (which can hint at account existence or internal state) never reaches the UI.
 function friendlyAuthError(message: string): string {
-  if (/invalid login credentials/i.test(message)) return "Incorrect username or password.";
-  if (/already registered|already exists/i.test(message)) return "That username is already taken.";
+  if (/invalid login credentials/i.test(message)) return "Incorrect username/email or password.";
+  if (/already registered|already exists/i.test(message)) return "That email is already registered.";
   if (/password/i.test(message) && /short|weak|least/i.test(message)) return "Password must be at least 6 characters.";
   return "Something went wrong. Please try again.";
 }
@@ -38,17 +52,27 @@ async function ensureProfile(session: Session, username: string) {
   if (error) throw new Error(error.code === "23505" ? "That username is already taken." : "Could not create your seller profile.");
 }
 
-export async function signUp(username: string, password: string): Promise<Session | null> {
-  const { data, error } = await supabase.auth.signUp({ email: identity(username), password });
+export async function signUp(username: string, email: string, password: string): Promise<Session | null> {
+  const { data, error } = await supabase.auth.signUp({ email: email.trim().toLowerCase(), password });
   if (error) throw new Error(friendlyAuthError(error.message));
   if (data.session) await ensureProfile(data.session, username);
   return data.session;
 }
 
-export async function signIn(username: string, password: string): Promise<Session> {
-  const { data, error } = await supabase.auth.signInWithPassword({ email: identity(username), password });
+// `identifier` may be a username or a real email — resolved transparently.
+export async function signIn(identifier: string, password: string): Promise<Session> {
+  const trimmed = identifier.trim();
+  const signedInWithEmailDirectly = isEmailLike(trimmed);
+  const email = await resolveEmailForIdentifier(trimmed);
+  if (!email) throw new Error("No account found with that username or email.");
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw new Error(friendlyAuthError(error.message));
-  await ensureProfile(data.session, username);
+  // Self-heals a profile row that failed to get created during signup — but
+  // only when we already know the *real* username (i.e. that's what they
+  // typed to sign in), never when they signed in with an email, since we
+  // have no way to know their intended username in that case and must not
+  // clobber a real one with the email string.
+  if (!signedInWithEmailDirectly) await ensureProfile(data.session, trimmed);
   return data.session;
 }
 

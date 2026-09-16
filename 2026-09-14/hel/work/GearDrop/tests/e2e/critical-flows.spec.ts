@@ -38,7 +38,8 @@ test("sign-up shows clear validation errors instead of silently doing nothing", 
 
   // A too-short password used to be silently blocked by the native minLength
   // constraint, leaving the dialog looking unchanged with no feedback at all.
-  await authDialog.locator('input[name="username"]').fill(`shortpw_${suffix}`);
+  await authDialog.locator('input[name="identifier"]').fill(`shortpw_${suffix}`);
+  await authDialog.locator('input[name="email"]').fill(`shortpw_${suffix}@example.com`);
   await authDialog.locator('input[name="password"]').fill("abc");
   await authDialog.getByRole("button", { name: "Create account" }).click();
   await expect(authDialog.getByRole("alert")).toHaveText(/at least 6 characters/i);
@@ -62,7 +63,8 @@ test("stale error clears on browser autofill, not just manual typing", async ({ 
   await page.getByRole("button", { name: "Sign in" }).click();
   const authDialog = page.locator('[role="dialog"]').first();
   await authDialog.getByRole("button", { name: "Need an account? Sign up" }).click();
-  await authDialog.locator('input[name="username"]').fill(`autofilltest_${suffix}`);
+  await authDialog.locator('input[name="identifier"]').fill(`autofilltest_${suffix}`);
+  await authDialog.locator('input[name="email"]').fill(`autofilltest_${suffix}@example.com`);
   await authDialog.locator('input[name="password"]').fill("abc");
   await authDialog.getByRole("button", { name: "Create account" }).click();
   await expect(authDialog.getByRole("alert")).toHaveText(/at least 6 characters/i);
@@ -83,7 +85,8 @@ test("sign-up -> create a listing -> delete it", async ({ page }) => {
   await page.getByRole("button", { name: "Sign in" }).click();
   const authDialog = page.locator('[role="dialog"]').first();
   await authDialog.getByRole("button", { name: "Need an account? Sign up" }).click();
-  await authDialog.locator('input[name="username"]').fill(username);
+  await authDialog.locator('input[name="identifier"]').fill(username);
+  await authDialog.locator('input[name="email"]').fill(`${username}@example.com`);
   await authDialog.locator('input[name="password"]').fill("TempPass123!");
   await authDialog.getByRole("button", { name: "Create account" }).click();
   await expect(authDialog).toHaveCount(0, { timeout: 10000 });
@@ -111,4 +114,58 @@ test("sign-up -> create a listing -> delete it", async ({ page }) => {
 
   await expect(page.locator(".card", { hasText: listingName })).toHaveCount(0);
   await expect(page.locator(".toast")).toHaveText(/removed/i);
+});
+
+test("sign up with a real email, then sign back in using that email", async ({ page }) => {
+  const username = `emailflow_${suffix}`;
+  const email = `${username}@example.com`;
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  const authDialog = page.locator('[role="dialog"]').first();
+  await authDialog.getByRole("button", { name: "Need an account? Sign up" }).click();
+  await authDialog.locator('input[name="identifier"]').fill(username);
+  await authDialog.locator('input[name="email"]').fill(email);
+  await authDialog.locator('input[name="password"]').fill("TempPass123!");
+  await authDialog.getByRole("button", { name: "Create account" }).click();
+  await expect(authDialog).toHaveCount(0, { timeout: 10000 });
+  await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Log out" }).click();
+  await page.getByRole("button", { name: "Sign in" }).click();
+  const signInDialog = page.locator('[role="dialog"]').first();
+  await signInDialog.locator('input[name="identifier"]').fill(email);
+  await signInDialog.locator('input[name="password"]').fill("TempPass123!");
+  await signInDialog.getByRole("button", { name: "Sign in" }).click();
+  await expect(signInDialog).toHaveCount(0, { timeout: 10000 });
+  await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
+});
+
+// This requires the public.email_for_username() Postgres function (see
+// supabase-email-lookup.sql) to already be applied to the live database —
+// this session has no DB write access to run it. If this test fails with
+// "No account found with that username or email," that SQL likely hasn't
+// been run yet, not an app bug.
+test("sign up, then sign back in using the username instead of email", async ({ page }) => {
+  const username = `userflow_${suffix}`;
+  const email = `${username}@example.com`;
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  const authDialog = page.locator('[role="dialog"]').first();
+  await authDialog.getByRole("button", { name: "Need an account? Sign up" }).click();
+  await authDialog.locator('input[name="identifier"]').fill(username);
+  await authDialog.locator('input[name="email"]').fill(email);
+  await authDialog.locator('input[name="password"]').fill("TempPass123!");
+  await authDialog.getByRole("button", { name: "Create account" }).click();
+  await expect(authDialog).toHaveCount(0, { timeout: 10000 });
+
+  await page.getByRole("button", { name: "Log out" }).click();
+  await page.getByRole("button", { name: "Sign in" }).click();
+  const signInDialog = page.locator('[role="dialog"]').first();
+  await signInDialog.locator('input[name="identifier"]').fill(username);
+  await signInDialog.locator('input[name="password"]').fill("TempPass123!");
+  await signInDialog.getByRole("button", { name: "Sign in" }).click();
+  await expect(signInDialog).toHaveCount(0, { timeout: 10000 });
+  await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
 });
