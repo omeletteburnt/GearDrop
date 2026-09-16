@@ -1,1 +1,23 @@
-.compare-section{padding:85px 7vw;background:#eee8fa}.compare-section h2{font-size:42px;letter-spacing:-2px;margin:0}.compare-section>p:not(.eyebrow){max-width:680px;line-height:1.55}.compare-empty{padding:20px;background:#fff;border:1px dashed #a999bb;color:#685a78}.compare-workspace{display:grid;grid-template-columns:1.5fr .75fr;gap:18px;margin-top:25px}.compare-table{display:grid;grid-template-columns:150px 1fr 1fr;gap:1px;background:#d5cce1}.compare-head,.compare-row>div,.compare-row>b{background:#fff;padding:15px}.compare-head{min-height:130px}.compare-head img{width:54px;height:54px;object-fit:cover;border-radius:4px;display:block;margin-bottom:8px}.compare-head b,.compare-head span{display:block}.compare-row{display:contents}.compare-row>div{font-size:13px;line-height:1.5}.compare-row small{display:block}.compare-nyx{background:#2d1746;color:#fff;padding:20px}.compare-nyx h3{margin:0 0 6px}.compare-nyx p{font-size:13px;color:#dacde7}.mini-nyx{font-size:28px;color:#d3b5ff;animation:nyx-spark 1.8s ease-in-out infinite}.compare-nyx textarea{width:100%;min-height:88px;padding:10px;border:1px solid #7d6396;background:#1c0d2d;color:#fff}.compare-nyx button{margin-top:8px;width:100%;border:0;background:#a870f5;color:#fff;padding:10px;font-weight:700}.compare-nyx .clear-compare{background:transparent;border:1px solid #8d75a6}.compare-button{display:block;margin-top:10px;padding:10px 13px;border:1px solid #7851ae;background:transparent;color:#60329b;font-weight:700}.compare-button:disabled{opacity:.5;cursor:not-allowed}html[data-theme="dark"] .compare-section{background:#20152c}html[data-theme="dark"] .compare-empty{background:#21172b;border-color:#685176;color:#d8cbdf}html[data-theme="dark"] .compare-table{background:#493657}html[data-theme="dark"] .compare-head,html[data-theme="dark"] .compare-row>div,html[data-theme="dark"] .compare-row>b{background:#21172b;color:#f4effa}html[data-theme="dark"] .compare-button{border-color:#9e78ca;color:#d7bcfb}@media(max-width:800px){.compare-workspace{grid-template-columns:1fr}.compare-table{grid-template-columns:100px 1fr 1fr}}@media(max-width:500px){.compare-section{padding:60px 6vw}.compare-table{grid-template-columns:1fr 1fr}.compare-head:first-child,.compare-row>b{display:none}.compare-head{min-height:110px}.compare-row>div{font-size:11px}}
+.compare-section{padding:85px 7vw;background:var(--surface-2)}
+.compare-section h2{font-size:38px}
+.compare-section>p:not(.eyebrow){max-width:680px;line-height:1.55;color:var(--text-soft)}
+.compare-empty{padding:var(--sp-5);background:var(--surface);border:1px dashed var(--border);border-radius:var(--radius-m);color:var(--text-soft)}
+.compare-workspace{display:grid;grid-template-columns:1.5fr .75fr;gap:var(--sp-5);margin-top:var(--sp-6)}
+.compare-table{display:grid;grid-template-columns:150px 1fr 1fr;gap:1px;background:var(--border);border-radius:var(--radius-m);overflow:hidden}
+.compare-head,.compare-row>div,.compare-row>b{background:var(--surface);padding:var(--sp-4)}
+.compare-head{min-height:130px}
+.compare-head img{width:54px;height:54px;object-fit:cover;border-radius:var(--radius-s);display:block;margin-bottom:var(--sp-2)}
+.compare-head b,.compare-head span{display:block}
+.compare-head span{font-family:var(--font-mono);color:var(--brass-ink);font-variant-numeric:tabular-nums}
+.compare-row{display:contents}
+.compare-row>div{font-size:13px;line-height:1.5;color:var(--text-soft)}
+.compare-row small{display:block}
+.compare-nyx{background:var(--void);color:var(--paper);padding:var(--sp-5);border-radius:var(--radius-m)}
+.compare-nyx h3{margin:0 0 6px}
+.compare-nyx p{font-size:13px;color:#c7bfdd}
+.mini-nyx{font-size:26px;color:var(--brass);animation:nyx-spark 2.4s ease-in-out infinite}
+.compare-nyx textarea{width:100%;min-height:88px;padding:12px;border:1px solid rgba(255,255,255,.14);border-radius:var(--radius-s);background:rgba(0,0,0,.25);color:var(--paper);resize:vertical}
+.compare-nyx textarea:focus-visible{outline:2px solid var(--brass);outline-offset:1px}
+.compare-nyx .btn{margin-top:var(--sp-3);width:100%}
+@media(max-width:800px){.compare-workspace{grid-template-columns:1fr}.compare-table{grid-template-columns:100px 1fr 1fr}}
+@media(max-width:500px){.compare-section{padding:60px 6vw}.compare-table{grid-template-columns:1fr 1fr}.compare-head:first-child,.compare-row>b{display:none}.compare-head{min-height:110px}.compare-row>div{font-size:11px}}
