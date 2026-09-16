@@ -1,4 +1,11 @@
 # GearDrop
+
+> **Where the code lives:** the actual app (source, `package.json`, Supabase SQL) is at
+> [`2026-09-14/hel/work/GearDrop/`](./2026-09-14/hel/work/GearDrop/), not this root. That path is
+> left as-is intentionally rather than flattened — see
+> [`docs/geardrop-hardening/`](./docs/geardrop-hardening/) for the ongoing security/design hardening
+> effort, including why this decision was made and what state work is in.
+
 THIS IS AN UNFINISHED DEMO.
 GearDrop is a website where all casual-competitive gamers come together and buy/sell off gaming equipment other fellow gamers have.
 The Game Industry sustains a big market, and I believe this website can actually give gamers a second alternative to gaming equipment.

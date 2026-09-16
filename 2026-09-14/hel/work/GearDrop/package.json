@@ -6,17 +6,24 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "test": "pnpm test:unit && pnpm test:e2e"
   },
   "dependencies": {
-    "vite": "latest",
-    "typescript": "latest",
+    "@supabase/supabase-js": "^2.116.0",
     "react": "latest",
-    "react-dom": "latest"
+    "react-dom": "latest",
+    "typescript": "latest",
+    "vite": "latest"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.63.0",
     "@types/node": "latest",
     "@types/react": "latest",
-    "@types/react-dom": "latest"
+    "@types/react-dom": "latest",
+    "vitest": "^5.0.1"
   }
 }

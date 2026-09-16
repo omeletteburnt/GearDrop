@@ -1,0 +1,368 @@
+# Worklog (append-only)
+
+## 2026-09-16 — Session 1
+
+**Step worked on:** Phase 0 (continuity setup + initial exploration/findings).
+
+**What changed (files):**
+- Created `docs/geardrop-hardening/FEATURE-BRIEF.md`, `PLAN.md`, `WORKLOG.md`, `ASSUMPTIONS.md`.
+- No app code changed yet.
+
+**Exploration performed:**
+- Confirmed nested app path: `2026-09-14/hel/work/GearDrop/`.
+- Read `TheKey.env` (contains real `AI_PROVIDER_API_KEY`), `src/supabase.ts`, `src/main.tsx`, `src/data.ts`, `supabase-setup.sql`, `supabase-admin-setup.sql`, `package.json`, `index.html`, root and nested `README.md`.
+- Confirmed no `.gitignore` anywhere, `dist/` and `TheKey.env` both tracked.
+- Confirmed no `@supabase/supabase-js` dependency, no test tooling, no `vercel.json`.
+- Searched `src/` for AI-provider network calls — found none; Nyx assistant logic is entirely local string templates.
+
+**Tests run:** none (no code changes yet).
+
+**Decisions made:**
+- Asked user to confirm key rotation before proceeding past planning on secret remediation, per the brief's explicit instruction. User responded: key not yet rotated, will handle "later." Recorded as OPEN in ASSUMPTIONS.md; Phase 1.1/1.2 blocked until resolved.
+- Logged 15 severity-rated findings (F1–F15) in PLAN.md, most notably that the committed AI key appears to belong to a feature that was never actually wired up (F12) — needs confirmation before scoping Phase 5 (serverless proxy).
+
+**Failures found / fixed:** none (no implementation yet).
+
+**Next action (superseded, see below):** ~~Present the full plan for approval.~~
+
+---
+
+## 2026-09-16 — Session 1 (continued)
+
+**Step worked on:** Resolving open assumptions (AI key fate, live RLS verification) ahead of formal plan approval.
+
+**What changed (files):**
+- `ASSUMPTIONS.md`: resolved key-rotation/AI-key-fate items, resolved RLS live-verification item, added Supabase URL/publishable-key discovery.
+- `PLAN.md`: Phase 0 items 0.3/0.4 marked done; Phase 2 items 2.2/2.3 marked done with results; added new item 2.4 (silent no-op delete UX/security gap); dropped Phase 5 entirely (serverless AI proxy) per user decision.
+- No app code changed yet — this was live-service verification only, not a code change.
+
+**Tests run / verification performed:**
+- Fetched the live deployed bundle (`https://gear-drop-4xza.vercel.app/assets/index-K5ZaqhWI.js`) and grepped for `AI_PROVIDER`/leaked-secret patterns — none found, confirming the key isn't client-exposed. Found the intentionally-public Supabase URL and `sb_publishable_...` key in the same bundle.
+- With explicit user approval, ran live anon-key RLS checks against production Supabase via curl:
+  - Anon SELECT listings/profiles → 200 (correct).
+  - Anon INSERT listing → 401 RLS violation (correct).
+  - Anon RPC `is_admin()` → 200 `false` instead of a hard rejection — **drift**: function lacks an explicit `EXECUTE` revoke from `PUBLIC`/`anon`. Not exploitable (always false for anon), but logged as a fix.
+  - Signed up two disposable test accounts (`rlstest_temp_a@nyx.local`, `rlstest_temp_b@nyx.local`), created a real listing as A (id=10), confirmed: anon DELETE and cross-user (B) DELETE both returned HTTP 204 but the listing **persisted** (verified by re-reading the row) — RLS correctly filtered both attempts to 0 rows. Owner (A) DELETE then succeeded and the row was actually removed (verified by re-read returning `[]`).
+
+**Failures found / fixed:** One real drift item found (`is_admin()` anon-executable) — not fixed yet, queued for the Phase 1/6 SQL patch step; not fixed inline because SQL/DB changes are implementation work that belongs in an approved, reviewable step, not ad-hoc during audit.
+
+**Decisions made:**
+- User confirmed: AI key gets removed entirely, no serverless proxy work (Phase 5 dropped).
+- User approved creating disposable test accounts/listing in the live production Supabase for RLS verification.
+
+**Known residual state needing user action:** Test accounts `rlstest_temp_a@nyx.local` / `rlstest_temp_b@nyx.local` (and their profile rows) still exist in production Supabase — this session has no service-role key to delete them. User should remove via Supabase Dashboard → Authentication → Users (cascades to profiles).
+
+**Next action (superseded, see below):** ~~Present updated plan, begin Phase 1.~~
+
+---
+
+## 2026-09-16 — Session 1 (continued) — Phase 1 execution
+
+**Step worked on:** Phase 1 — secret remediation & repo hygiene (user approved "go ahead with Phase 1").
+
+**What changed (files):**
+- Added `.gitignore` at repo root: `node_modules/`, `dist/`, `*.env`, `*.env.*` (with `!*.env.example` allowance), `*.tsbuildinfo`, `.DS_Store`, `.idea/`.
+- Deleted `2026-09-14/hel/work/GearDrop/TheKey.env` from disk and untracked it (`git rm --cached`).
+- Untracked `2026-09-14/hel/work/GearDrop/dist/` (20 files, `git rm -r --cached`); removed the on-disk copy after verifying it rebuilds correctly.
+- All changes are in the working tree / git index only — **no commit made** (not asked to commit yet).
+
+**Tests run and results:**
+- `corepack prepare pnpm@latest --activate` (pnpm wasn't on PATH) → succeeded.
+- `pnpm install` in the app dir → succeeded, lockfile respected, 26 packages.
+- `pnpm build` (`tsc --noEmit && vite build`) with `TheKey.env` already deleted → **succeeded**, 21 modules transformed, no type errors, no missing-env warnings. Confirms the app has zero runtime dependency on `AI_PROVIDER_API_KEY`.
+- `git check-ignore -v TheKey.env dist node_modules` → confirmed `.gitignore` correctly matches all three going forward.
+- `git status --short` before/after → confirms only the intended deletions + two new untracked additions (`.gitignore`, `docs/`), nothing unexpected swept in.
+
+**Failures found / fixed:** None — build was green on the first attempt after removing the secret file.
+
+**Blocked / needs user action:**
+1. **Vercel env var removal** — `gear-drop` project is not visible under this session's logged-in Vercel account (`monmargarcia-5863's projects` only shows unrelated projects: secondshot, farming-tracker, parkwise-web, pdf-forge, awsdesk-web, awsdesk-api, parkwise-api). User must remove `AI_PROVIDER_API_KEY` manually via Vercel Dashboard → gear-drop → Settings → Environment Variables.
+2. **Key rotation** still not done at the provider (carried over from earlier this session) — user's call on timing, doesn't block this step.
+3. **Leftover Supabase test accounts** (`rlstest_temp_a@nyx.local`, `rlstest_temp_b@nyx.local`) from the earlier RLS verification still need manual deletion via Supabase Dashboard.
+
+**Decisions made:** Did not commit these changes yet — waiting for explicit commit approval per the working method. Did not touch the nested-path question (1.4) or the `is_admin()` SQL grant fix (1.6) — both deferred as separate, smaller decisions rather than bundled into this step.
+
+**Self-review note (OWASP-frame):** This step reduces API Security Top 10 risk (API2:2023 Broken Authentication / secrets exposure) by removing a leaked credential from the tracked tree and preventing recurrence via `.gitignore`. **Explicitly not handled yet**: the key is still live at the provider (rotation pending — real exposure window remains open until the user rotates it), the git *history* still contains the plaintext key (recommendation-only per the brief), and the Vercel env var itself is still set (can't reach it from this session).
+
+**Next action (superseded, see below):** ~~Ask about commit + nested path.~~
+
+---
+
+## 2026-09-16 — Session 1 (continued) — nested path decision + commit deferral
+
+**What changed (files):**
+- `README.md` (repo root): added a pointer note at the top linking to `2026-09-14/hel/work/GearDrop/` (where the real app lives) and to `docs/geardrop-hardening/`.
+
+**Decisions made:**
+- User: **do not commit Phase 1 changes yet** — left as working-tree/staged state for now.
+- User: **leave the nested path as-is**, just document it (not flattened to repo root). No Vercel root-directory change needed since nothing moved.
+
+**Tests run:** none needed (doc-only change).
+
+**Current uncommitted state:** `.gitignore` (new), `TheKey.env` (deleted, staged), `dist/` (untracked, staged deletion of 20 files), `README.md` (modified), `docs/` (new, untracked). All still awaiting a commit-approval ask.
+
+**Next action (superseded, see below):** ~~ask which to prioritize next~~ — user picked the `is_admin()` fix.
+
+---
+
+## 2026-09-16 — Session 1 (continued) — is_admin() grant fix
+
+**Step worked on:** 1.6 — `is_admin()` anon-executable drift.
+
+**What changed (files):**
+- `2026-09-14/hel/work/GearDrop/supabase-admin-setup.sql`: added `revoke execute on function public.is_admin() from public, anon;` immediately after the function definition and before `grant execute ... to authenticated;`.
+
+**Tests run:** None yet — this is a DB grant, and this session only has the public anon key, not service-role/DDL access. Cannot execute the revoke myself.
+
+**Decisions made / blocker:** Gave the user the single SQL line to run manually in the Supabase SQL editor against the live project. Did not ask them to re-run the whole `supabase-admin-setup.sql` file since the table/function/policy already exist live — only the new revoke line is needed.
+
+**Next action (superseded, see below):** ~~waiting on user~~ — user ran it and confirmed.
+
+---
+
+## 2026-09-16 — Session 1 (continued) — is_admin() fix verified, service_role key note
+
+**What changed (files):** None (verification only).
+
+**Tests run and results:**
+- Re-ran `POST /rest/v1/rpc/is_admin` with the anon/publishable key: now returns `401 {"code":"42501","message":"permission denied for function is_admin"}` (previously `200 false`). **Fix confirmed live.** Item 1.6 closed.
+
+**Notable event — service_role key handling:** User initially offered to share the Supabase `service_role` secret key so I could run the DDL directly. I accepted and received it in chat, then attempted to use it via a `curl` call — this was blocked by the harness's auto-mode permission classifier before execution (it never ran). On reflection, this wouldn't have worked anyway: PostgREST doesn't expose raw SQL/DDL execution even with service_role (no `exec_sql`-style RPC exists in this project, confirmed via a 404 probe with the anon key), so actually running `REVOKE` requires either the Supabase SQL editor or a genuine Postgres connection string, not a service-role JWT. Advised the user to run the statement themselves (which they did) and to consider rotating the service_role key since it was typed into the session. **The service_role key was never written to any file, command output that got persisted to disk, or repo content in this session** — it appeared only in the user's own chat message and my one blocked tool-call attempt.
+
+**Decisions made:** None new — closing out this sub-item.
+
+**Self-review note (OWASP-frame):** This closes an API5:2023 (Broken Function Level Authorization) gap — `is_admin()` no longer discloses admin-check behavior to unauthenticated callers. **Not handled**: whether the `service_role` key the user pasted into this chat should be rotated is still open — flagging it explicitly rather than assuming they will.
+
+**Next action (superseded, see below):** ~~ready for Phase 3 or Phase 7~~ — user picked Phase 3.
+
+---
+
+## 2026-09-16 — Session 1 (continued) — Phase 3: session & auth hardening
+
+**Step worked on:** Phase 3 (3.1 supabase-js migration, 3.2 error message hardening + silent-delete fix, 3.3 synthesized-email review).
+
+**What changed (files):**
+- `2026-09-14/hel/work/GearDrop/package.json`, `pnpm-lock.yaml`: added `@supabase/supabase-js@2.116.0`.
+- `2026-09-14/hel/work/GearDrop/src/supabase.ts`: full rewrite — `createClient()`-based client replaces hand-rolled `fetch`; `getSession()` now async; new `onSessionChange()` subscription helper; `signOut`/`saveListing`/`deleteListing`/`isAdmin` no longer take a `session` argument; added `friendlyAuthError()` mapping; `deleteListing` now uses `{count:"exact"}` and throws when 0 rows affected instead of silently "succeeding."
+- `2026-09-14/hel/work/GearDrop/src/main.tsx`: updated all call sites to match (async session load via `useEffect`, subscription to `onSessionChange`, dropped `session` args from the four calls above).
+- All changes uncommitted (working tree only), consistent with earlier "not yet" on committing.
+
+**Tests run and results:**
+- `pnpm build` (`tsc --noEmit && vite build`) → clean, 64 modules, no type errors.
+- Live functional smoke test (temporary Node script, deleted after use, never committed) against production Supabase using a new disposable account `rlstest_temp_c@nyx.local`:
+  - signUp → session returned, no error.
+  - profile upsert → success.
+  - listing insert → success (id 11).
+  - `is_admin()` RPC as authenticated non-admin → `false`, no error (confirms the 1.6 fix didn't overtighten and break the intended `authenticated` grant).
+  - signOut, then delete attempt on the test listing → `count: 0`, no error at the Postgres layer — confirms the `deleteListing()` wrapper's `if (!count) throw` branch is what turns this into a real error for the caller.
+  - sign back in, delete same listing (owner) → `count: 1`, succeeds — listing actually removed.
+  - sign-in with wrong password → raw error `"Invalid login credentials"` confirmed mapped by `friendlyAuthError()` to `"Incorrect username or password."`.
+  - Test listing was cleaned up as part of the test (deleted by its owner in the last delete call); the `rlstest_temp_c` account/profile itself was not (no delete policy, no service-role access) — added to ASSUMPTIONS.md alongside the other two leftover test accounts.
+
+**Failures found / fixed:** None — the migration built and passed the smoke test on the first full run.
+
+**Decisions made:** Folded the previously-separate item 2.4 (silent no-op delete) into this step's `deleteListing()` rewrite since it's the same function being touched anyway — not scope creep, just avoiding touching the same code twice. Documented (not built) the password-reset gap and the username-normalization collision behavior for 3.3 rather than changing product behavior, since both are product decisions outside a hardening pass's authority to unilaterally change.
+
+**Next action (superseded, see below):** ~~awaiting direction~~ — user picked Phase 7.
+
+---
+
+## 2026-09-16 — Session 1 (continued) — Phase 7: test tooling setup
+
+**Step worked on:** Phase 7 (Vitest + Playwright setup, `pnpm test` wiring).
+
+**What changed (files):**
+- `2026-09-14/hel/work/GearDrop/package.json`, `pnpm-lock.yaml`: added `vitest@5.0.1`, `@playwright/test@1.63.0` as devDependencies; added `test:unit`, `test:e2e`, `test` scripts.
+- New: `vitest.config.ts`, `playwright.config.ts`, `tests/unit/rank.test.ts`, `tests/integration/rls.test.ts`, `tests/e2e/smoke.spec.ts`, `.env.example` (tracked), `.env.local` (gitignored, populated with the already-public Supabase URL/publishable key).
+- `src/recommend.ts` (new): extracted `rank()` out of `main.tsx` so it's unit-testable without triggering `main.tsx`'s top-level `createRoot().render()` DOM side effect. `main.tsx` updated to import `rank` from it instead of defining it inline.
+- `src/supabase.ts`: fixed a real bug (see below) — `createClient()` now falls back to a placeholder URL/key instead of throwing when env vars are unset.
+- All still uncommitted (working tree only).
+
+**Tests run and results:**
+- `pnpm build` → clean, 65 modules.
+- `pnpm test:unit` (vitest) → first run: 4 of 9 failed. Root cause: the RLS integration test reused one shared `anon` Supabase client for both account setup (`signUp`) and the "genuinely anonymous" assertions — `signUp` persists a session on the client it's called on, so later "anon" calls were actually authenticated as the just-created test user, making anon-INSERT/anon-DELETE/anon-RPC checks pass for the wrong reason (or fail the assertion since they weren't actually anonymous). Fixed by using a separate throwaway client for every account-setup call, keeping the shared `anon` client genuinely unauthenticated throughout. Re-run: 9/9 passed (3 unit, 6 integration).
+- `pnpm test:e2e` (playwright): needed `npx playwright install chromium` first (browser binary wasn't present). First run failed for two reasons, both fixed in this step: (1) `playwright.config.ts`'s `pnpm dev -- --port 4173` didn't actually pass the port through to vite (pnpm/vite arg-forwarding quirk) — switched to `pnpm exec vite --port 4173`; (2) with the dev server actually starting, the page crashed with `Error: supabaseUrl is required` — this is a **real regression from the Phase 3 migration**, not a test artifact: `createClient(url ?? "", key ?? "")` throws synchronously on empty strings, so any environment without `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` set (this local/CI environment had none) crashes the whole app at import time, whereas the old hand-rolled client degraded gracefully. Fixed in `src/supabase.ts` by falling back to a placeholder URL/key so client construction never throws — real network calls against the placeholder just fail and are caught by existing try/catch call sites, same as before. Re-run after both fixes: 1/1 passed.
+- `pnpm test` (single chained command, `test:unit && test:e2e`) → full green run: 9 Vitest + 1 Playwright, all passing.
+- `pnpm build` re-verified clean after all changes.
+
+**Failures found / fixed (root cause, one line each):**
+1. Integration test false failures — shared Supabase client leaked an authenticated session into "anonymous" assertions — fixed by using dedicated setup clients.
+2. Playwright webServer never started listening on the configured port — `pnpm <script> -- <args>` doesn't forward args as expected through this pnpm/vite combination — fixed by invoking `vite` directly via `pnpm exec`.
+3. **App-crashing regression**: `createClient()` throws on empty URL/key, unlike the previous hand-rolled client — fixed with a placeholder-URL fallback in `src/supabase.ts`.
+
+**Decisions made:** Deferred full critical-flow E2E coverage (browse→detail→compare; sign-up→create→delete) to Phase 11 rather than writing it now, since the DOM structure those tests would target is about to be rewritten in the Phase 8/9 design rollout — writing full E2E against markup that's getting replaced would mean doing the work twice. Phase 7 ships one baseline E2E smoke test proving the harness itself (dev server boot + page render) works.
+
+**Known unresolved limitation (flagged, not solved):** `tests/integration/rls.test.ts` creates 2 new disposable Supabase Auth users in the **live production database** every time it runs, since no staging Supabase project exists and this session has deliberately avoided using a service-role key for cleanup. Fine for the occasional manual run done during this audit, but this suite is **not safe to wire into CI as-is** — added to ASSUMPTIONS.md as an open item needing a user decision (separate staging project, or a CI-secret-only service-role key).
+
+**Self-review (OWASP-frame):** This step doesn't reduce API-security risk directly, but it now makes every earlier ad-hoc verification (RLS behavior, the `is_admin()` fix) into a repeatable regression test — meaning a future step that accidentally reverts the grant fix or breaks delete permissions gets caught automatically instead of silently. It also caught a genuine app-breaking bug (`createClient` throwing on missing env vars) that manual `pnpm build`/`tsc` checks alone had missed, since TypeScript type-checking doesn't catch a runtime throw on valid-but-empty strings. **Not handled**: no CI workflow file exists yet (tests run manually only); the production-database test-account accumulation problem above remains open.
+
+**Next action (superseded, see below):** ~~awaiting direction~~ — user picked Phase 6.
+
+---
+
+## 2026-09-16 — Session 1 (continued) — Phase 6: security headers
+
+**Step worked on:** Phase 6 (`vercel.json` with CSP + security headers).
+
+**What changed (files):**
+- New `2026-09-14/hel/work/GearDrop/vercel.json`: CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, HSTS. Full policy text and rationale in PLAN.md Phase 6.
+
+**Tests run and results:**
+- `pnpm build` clean, JSON-validated `vercel.json` syntax.
+- Wrote a throwaway local Node static server (deleted after use, never committed) that serves `dist/` with the exact header set from `vercel.json`, then loaded it in headless Chromium via the app's installed Playwright and inspected the console.
+  - **First run found a real conflict**: CSP blocked the app's existing Google Fonts `@import` in `src/styles.css` (Space Grotesk / DM Mono) — this font load predates this session's work and hadn't come up in earlier file reads. Fixed by adding `fonts.googleapis.com`/`fonts.gstatic.com` to `style-src`/`font-src`.
+  - Re-run: zero CSP violations, hero renders, all in-scope images decode.
+  - Two unrelated issues surfaced (not CSP-caused): `cdn.iset.io`'s demo image genuinely 403s (pre-existing broken data, confirmed independent of CSP via a direct `curl -I`); and a leftover **production** row (`id=12`, `name: "should-not-insert"`, `image: "http://x"`) that turns out to be pollution from the Phase 7 integration-test bug (a transiently-authenticated "anon" client legitimately created it under real user permissions before the isolation bug was fixed — not an RLS failure, just test debris now visible on the live listings feed).
+
+**Failures found / fixed:** CSP/Google-Fonts conflict — fixed by widening `style-src`/`font-src` to the two required Google Fonts domains, verified via re-run.
+
+**Decisions made:** Kept `img-src` broad (`'self' https:`) rather than a fixed domain allowlist, since the product intentionally uses many external image hosts and the README states more are expected — documented as a deliberate trade-off, not an oversight.
+
+**Known unresolved items (added to ASSUMPTIONS.md):**
+- Live listing `id=12` ("should-not-insert") needs manual deletion via Supabase Table Editor — I don't have credentials for that specific historical test session and won't reuse the previously-shared service-role key.
+- Headers verified only against a local simulation using identical header values — not yet checked against the actual live Vercel deployment (`curl -I` against the real URL) since no deploy has happened this session.
+
+**Self-review (OWASP-frame):** Closes an API8:2023 Security Misconfiguration gap — the site shipped zero defensive headers before this. **Not handled**: real-deployment header verification (pending a deploy), and the `img-src https:` breadth is a conscious trade-off against a full domain allowlist, not fully "locked down."
+
+**Next action (superseded, see below):** ~~awaiting direction~~ — user picked Phase 4.
+
+---
+
+## 2026-09-16 — Session 1 (continued) — Phase 4: input validation & XSS hardening
+
+**Step worked on:** Phase 4 (4.1 client-side validation, 4.2 image URL scheme + broken-image fallback, 4.3 markup-injection sweep).
+
+**What changed (files):**
+- New `2026-09-14/hel/work/GearDrop/src/validation.ts`: `validateListing()` (mirrors DB check constraints) and `safeImageUrl()` (http/https-only allowlist with placeholder fallback).
+- New `2026-09-14/hel/work/GearDrop/public/placeholder-product.svg`: minimal fallback image (full visual polish deferred to Phase 9).
+- `src/main.tsx`: `Sell`'s `submit()` now validates via `validateListing()` before calling `saveListing()`, showing a toast on rejection; every listing-derived `<img>` (`Card`, `Recommendation`, `Detail`, compare table) now goes through `safeImageUrl()` plus a shared `onImgError` fallback handler. Hero gallery images (fixed local demo data) intentionally left unwrapped.
+- New `tests/unit/validation.test.ts` (11 cases) and new `tests/e2e/xss.spec.ts` (live XSS-payload rendering check).
+- All still uncommitted (working tree only).
+
+**Tests run and results:**
+- `pnpm build` → clean, 66 modules.
+- `pnpm test` (full chained command) → 20 Vitest tests (unit + integration) + 2 Playwright tests, all green.
+- The new `xss.spec.ts` is a genuine live-browser proof, not a theoretical claim: it creates a disposable Supabase test account, inserts a real listing via the API with a `<script>` tag in the name and an `onerror`-handler `<img>` in the description, loads the actual page in headless Chromium, and confirms (a) the injected `window.__xssFired` flag was never set, (b) no JS dialog fired, (c) the payload text renders visibly as literal escaped text. Passed on first run — confirms React's JSX text-escaping actually holds in this app, not just in principle.
+
+**Failures found / fixed:** None this step — both new test files passed on the first full run.
+
+**Decisions made:** Kept the validation-error UI as a toast rather than building inline per-field error states now, per the original plan note that visual polish belongs in Phase 9's component-system rollout — this step's job was closing the "invalid data reaches the network" gap, not the final look. Applied `safeImageUrl` defensively across all DB-sourced image renders even though no UI field currently lets a seller set an arbitrary image URL — noted explicitly as hardening a not-yet-reachable path, not closing an active vulnerability, so it doesn't get miscounted as a real finding fixed.
+
+**Known housekeeping:** another disposable test account (`rlstest_xss_<timestamp>@nyx.local`) is created every time `tests/e2e/xss.spec.ts` runs — same accumulation issue already flagged in Phase 7/ASSUMPTIONS.md, not a new category of problem, just another instance of it.
+
+**Self-review (OWASP-frame):** Adds early rejection of malformed input and a live-verified XSS defense. **Not handled**: no DB-level `CHECK` constraint mirrors the new client-side validation, so the real enforcement boundary is still (correctly, defense-in-depth-wise) the database — client validation is a UX improvement and a defense layer, not the security boundary itself; inline visual error states remain deferred to Phase 9.
+
+**Next action (superseded, see below):** ~~awaiting direction~~ — user picked Phase 8, then approved and asked for Phase 9 rollout.
+
+---
+
+## 2026-09-16 — Session 1 (continued) — Phase 8: design tokens + reference screen (approval gate)
+
+**Step worked on:** Phase 8 — present a token set and one reference screen for approval before any live-app UI changes.
+
+**What changed (files):** None in the app repo. Built and published a standalone HTML artifact ("Salvage Terminal") at a scratch path, not part of the GearDrop repo, showing: color/type/spacing/shadow tokens, a button/input/badge component preview, and a reference screen (home hero + product grid + detail sheet) built with GearDrop's own real listing data (Logitech G Pro X, HyperX Cloud II, etc.) and a light/dark toggle.
+
+**Design direction:** kept Space Grotesk (already the app's live display face, found during Phase 6's CSP work) rather than replacing it; added Manrope for body/UI text; promoted DM Mono (already imported but underused) into a real structural device — inventory-style tags and prices rather than incidental numerals. One accent (brass/amber) standing in for a resale price-tag motif, on indigo-biased neutrals — deliberately steered away from the generic "near-black + neon accent + Space-Grotesk-as-safe-choice" cluster flagged as an AI-design cliché, by grounding the accent and the tag-shaped badges in the actual second-hand-marketplace subject matter.
+
+**Verification/process:** Embedded all reference images as base64 data URIs after the first publish attempt warned about blocked external image requests (the artifact CSP doesn't allow arbitrary external hosts) — re-published clean.
+
+**Decisions made:** User approved the proposal as presented, with no requested changes, and gave forward approval for the Phase 9 rollout in the same message.
+
+**Next action:** Begin Phase 9 rollout, screen by screen, starting with the token/component foundation (9.1).
+
+---
+
+## 2026-09-16 — Session 1 (continued) — Phase 9.1: design tokens + component system rollout into the live app
+
+**Step worked on:** Phase 9.1 — bring the approved token system into the actual codebase and establish the shared button/badge component classes; explicitly NOT 9.2 (modal/sheet behavior rebuild), which is a separate markup+JS step.
+
+**What changed (files):**
+- New `2026-09-14/hel/work/GearDrop/src/tokens.css`: the approved palette/type/spacing/shadow/motion tokens as CSS custom properties, light-default with `prefers-color-scheme`/`[data-theme]` dark overrides (matching the app's existing `data-theme` toggle mechanism), plus shared `.btn`, `.tag-badge`, `.field-error` component classes and a global `prefers-reduced-motion` rule.
+- Rewrote `styles.css`, `theme.css`, `compare.css`, `safety.css`, `delete.css` to consume the tokens instead of hardcoded hex values, keeping existing class names/DOM hooks except where the new component system needed a class added.
+- Deleted `comparison.css` and `nyx-qa.css` — confirmed dead (never imported anywhere, verified by grep) before deleting.
+- `main.tsx`: imports `tokens.css`; wired `.btn`/variant classes onto real buttons (nav, Sell/Auth submit, Detail actions, DeleteConfirm, compare-section); product status now renders as a color-coded `.tag-badge` instead of plain text; card price restyled to brass/mono/tabular; hero gallery images now show brass price-tag overlays (the one new visual element beyond restyling, matching the approved reference), routed through the existing `safeImageUrl`/`onImgError` guards from Phase 4.
+
+**Tests run and results:**
+- `pnpm build` clean, 67 modules.
+- Booted the real dev server and used Playwright to take actual screenshots (not just trust the CSS compiled) at 1440px light, 1440px dark, and 375px mobile, plus opened a real detail overlay.
+- **Found and fixed a real bug this way**: the modal close button was nearly invisible in dark mode (a light-tinted transparent background against a dark panel). Fixed to a bordered circle matching the existing theme-toggle button pattern; re-screenshotted to confirm the fix.
+- Screenshots incidentally reconfirmed two things from earlier phases still holding under the new styles: the broken `cdn.iset.io` image degrades to the placeholder gracefully (Phase 4), and the still-undeleted `should-not-insert` test row (Phase 6/7 debris) renders its content inertly (Phase 4's XSS work).
+- Full `pnpm test`: 20 Vitest + 2 Playwright, all green — confirms the CSS-only + button-wiring changes didn't regress app behavior.
+
+**Failures found / fixed:** The dark-mode close-button contrast bug above — root cause: a hardcoded `rgba(0,0,0,.06)` background that only reads as a background on a light surface, never swapped per-theme, unlike everything else which was already token-driven.
+
+**Decisions made:** Scoped this step to CSS + component-class wiring only, explicitly not touching modal behavior (focus trap/ESC/scroll-lock — real accessibility gaps, not just visual) — that's 9.2, a distinct kind of change (markup + JS, not CSS), kept separate so each step stays reviewable in one sitting per the working method.
+
+**Self-review (OWASP-frame):** Primarily visual/UX work; the relevant risk is regression, checked via full test suite + actual rendered screenshots rather than a type-check alone. **Not handled yet**: formal accessibility contrast audit (planned 9.5); modal focus-trap/ESC/scroll-lock (planned 9.2) — the current overlay is visually improved but has the same interaction gaps as before this step.
+
+**Next action (superseded, see below):** ~~check in first~~ — user said "yes, continue with 9.2" then "just continue all throughout," authorizing continuous execution through the rest of Phase 9 without a stop-and-ask after every sub-item.
+
+---
+
+## 2026-09-16 — Session 1 (continued) — Phase 9.2–9.5: modal accessibility, empty/loading states, finishing details
+
+**Step worked on:** Phase 9.2 (modal/sheet a11y rebuild), 9.3 (card polish — mostly already done), 9.4 (empty/loading states), 9.5 (favicon/OG image/responsive/accessibility audit). Executed continuously per user direction, testing at each stage.
+
+**What changed (files):**
+- `main.tsx`: added shared `useModalA11y()` hook (focus trap, Escape-to-close, body-scroll-lock, focus restore) and `overlayClick()` backdrop-click helper; applied to Detail, Sell, Auth, DeleteConfirm. Detail's root element changed from `<article>` to `<div>` (ARIA fix, see below); Sell/Auth restructured from `<form role="dialog">` to `<div role="dialog"><form>...</form></div>` (same ARIA fix). Added a loading-skeleton branch and an empty-state branch to the listing grid render, backed by a new `listingsLoading` state tied to the existing `loadListings()` effect.
+- `styles.css`: added `.card-skeleton` shimmer, fixed `.empty` to span the full grid width, restyled `.close` (dark-mode contrast fix carried from 9.1's own screenshot check), restyled `.detail` as a fixed right-side sheet with slide-in animation and a mobile full-screen breakpoint, added `.nyx-wave` styling (see bug below), added light-surface `.eyebrow`/`.example` overrides and swapped several text-color usages from `--brass` to the new `--brass-ink`.
+- `tokens.css`: split the single `--brass` token into three (`--brass` fill, `--brass-strong` lighter hover-fill, `--brass-ink` text-on-light) after discovering no single value could pass AA in both roles; darkened light-theme `--ok`/`--warn`/`--bad` after discovering they failed AA against their own soft backgrounds.
+- `compare.css`, `safety.css`: matching `--brass` → `--brass-ink` swaps for text-on-light usages (compare-head price span, back-market link).
+- `index.html`: added favicon link, `theme-color`, and full OG/Twitter meta tags.
+- New `public/favicon.svg` (brass geometric mark) and `public/og-image.png` (1200×630, real generated image — built by screenshotting a small standalone branded HTML page via Playwright, not a placeholder).
+- Added `@axe-core/playwright` devDependency.
+- New test files: `tests/e2e/modal.spec.ts` (2 cases — scroll-lock/focus-trap/Escape, backdrop-click), `tests/e2e/a11y.spec.ts` (4 cases — home light/dark, detail sheet dark, auth dialog light).
+
+**Tests run and results:**
+- `pnpm build` clean throughout every iteration.
+- Real Playwright runs (not just type-checks) verified: body scroll lock toggles correctly, focus moves into the dialog on open and is restored on close, Escape and backdrop-click both close it, the mobile sheet is genuinely full-viewport.
+- Screenshotted the real running app at 1440/768/375px in both themes plus an open detail sheet — caught a real dark-mode contrast bug in the close button this way (documented under 9.1, held up on re-check here).
+- Ran the new axe accessibility suite against the live app — **found and fixed four real, previously-unnoticed bugs**, not test artifacts:
+  1. `.nyx-wave` had zero CSS after being accidentally dropped in the 9.1 rewrite — white-on-near-white text (1.05:1 contrast).
+  2. `role="dialog"` on `<article>`/`<form>` is invalid ARIA (native semantics block the override) — fixed via `<div>` wrappers.
+  3. The single `--brass` token could not pass AA as both a button-fill (paired with fixed dark text) and standalone text-on-white — these have opposite lightness requirements. Split into `--brass`/`--brass-strong`/`--brass-ink`, verified against actual computed contrast ratios via a small Python script (not guessed) before and after.
+  4. All three semantic colors (`--ok`/`--warn`/`--bad`) failed AA against their own tinted `-soft` backgrounds in light theme — darkened all three, re-verified computationally and then via axe.
+  - One flake was in the *test*, not the app: axe initially sampled colors mid-CSS-transition (220ms fade/scale-in), producing blended interpolated values that looked like failures — fixed by waiting for the transition to settle before running axe, confirmed stable across two full re-runs.
+- Final full `pnpm test`: 20 Vitest + 8 Playwright (28 total), all green, re-run twice for stability.
+
+**Failures found / fixed (root cause, one line each):**
+1. `.nyx-wave` contrast — CSS rule accidentally deleted during the 9.1 file rewrite without a replacement.
+2. Invalid `role="dialog"` on article/form — native ARIA semantics for those elements block role override; needed a generic wrapper.
+3. `--brass` single-token contrast failure — one hex value can't satisfy both "fill behind fixed dark text" and "text directly on a light background" at once; needed two distinct tokens.
+4. Semantic soft-background contrast failure — original `--ok`/`--warn`/`--bad` picks were tuned by eye for hue, not verified against the actual composited background they'd render on.
+
+**Decisions made:** Restructured Detail into a genuine right-side sheet per the approved reference (full-screen below 640px); kept Sell/Auth/DeleteConfirm as centered dialogs, matching what the brief actually specified (only Detail was called out as needing the sheet treatment). Used computed contrast-ratio math (not visual guessing) to pick every replacement color, verifying against the *actual* rendered background colors rather than assuming pure white/black.
+
+**Self-review (OWASP-frame):** This phase fixed real accessibility defects (keyboard trap, WCAG contrast) rather than pure cosmetics — a keyboard-only or low-vision user genuinely could not have used the modals or read some text reliably before this. The token-splitting bug is exactly the kind of regression a design system exists to prevent, and it only surfaced via automated axe testing, not the earlier manual screenshot review — reinforcing that "look at it" alone isn't sufficient verification for contrast work going forward. **Not handled**: no CI wiring runs the test suite automatically; the axe audit covers home + 2 dialogs, not the Sell form or compare workspace independently (lower risk since they reuse the same fixed tokens, but not directly verified).
+
+**Next action (superseded, see below):** ~~continue to Phase 10/11~~ — done below.
+
+---
+
+## 2026-09-16 — Session 1 (continued) — Phase 10 & 11: UX/performance, keyboard a11y, full critical-flow E2E
+
+**Step worked on:** Phase 10 (query tuning, keyboard accessibility) and Phase 11 (critical-flow E2E tests), executed together per continued "just continue all throughout" direction.
+
+**What changed (files):**
+- `src/supabase.ts`: added `.limit(200)` to `loadListings()` as a defensive query cap (explicit column selection was already done in Phase 3; full pagination UI judged as over-engineering at the current data scale and not built).
+- `src/main.tsx`: `Card` component fixed for keyboard accessibility — was `onClick`-only with no way to reach or activate it via keyboard. Added `tabIndex={0}`, `role="button"`, a descriptive `aria-label`, `onKeyDown` for Enter/Space. Hit the same restricted-ARIA issue as Phase 9.2 (`role="button"` invalid on `<article>`) — changed root element to `<div>`.
+- `src/styles.css`: added a visible brass focus ring for `.card:focus-visible`.
+- New `tests/e2e/critical-flows.spec.ts` (2 tests): the two flows named explicitly in the original testing-standard brief, run through real UI interaction rather than API shortcuts.
+
+**Tests run and results:**
+- `pnpm build` clean.
+- New critical-flow tests: **first run caught a real test-authoring bug**, not an app bug — the "create listing" test hung because the Sell form's `window.confirm()` (shown when the optional "Key specifications" field is left blank) was being auto-dismissed by Playwright's default dialog handling, silently blocking submission. Fixed by filling that field in the test rather than adding dialog-handling machinery, since a filled field is the realistic user path anyway.
+- After that fix, re-ran the full suite: caught the *same* invalid-ARIA-role class of bug found in 9.2 (`role="button"` not allowed on `<article>`) via the axe suite going red again after the Card change — fixed the same way (swap to `<div>`), confirmed fixed by rerunning axe.
+- Final full `pnpm test`: **20 Vitest + 10 Playwright = 30 tests**, all green, re-run twice for stability.
+
+**Failures found / fixed (root cause, one line each):**
+1. Test hang on Sell-form submission — Playwright's default `window.confirm()` auto-dismissal silently blocked a code path the test didn't anticipate; fixed by filling the field that avoids triggering the confirm.
+2. Invalid ARIA role on the newly-keyboard-accessible card — same native-element-semantics restriction as Phase 9.2, same fix (generic `<div>` instead of a sectioning element).
+
+**Decisions made:** Did not build a pagination UI (page controls/infinite scroll) — judged as building for a scale the app doesn't have yet (~22-30 listings); a query-level `.limit()` is the proportionate fix per the "don't design for hypothetical future requirements" principle. Both critical-flow tests intentionally exercise the real UI (real form fills, real button clicks) rather than calling `saveListing()`/`signUp()` directly, since the whole point of this phase is coverage of the user-facing flow, not just the underlying API calls (already covered by the Phase 7 integration suite).
+
+**Self-review (OWASP-frame):** The keyboard-accessibility fix is a genuine defect fix (WCAG 2.1.1 keyboard operability), not polish — found by manual review since automated axe doesn't check operability, only markup/contrast, illustrating why layering test types (unit/integration/E2E/manual-informed) matters rather than trusting one tool. **Not handled**: the growing pile of disposable test accounts in production Supabase (now 4 created per full suite run: 2 from RLS integration, 1 from XSS, 1 from the new critical-flow signup) remains unresolved — flagged repeatedly since Phase 7, still needs a user decision (staging project vs. CI-scoped service-role key) before any CI automation.
+
+**Current overall status:** All 11 plan phases are now complete except items that were always scoped as "recommend, don't execute" (git-history scrub) or that depend on the user (key rotation, Vercel env var removal, service_role key rotation, test-account cleanup, CI wiring decision). Nothing has been committed or deployed yet — all work remains in the working tree pending explicit approval for either action.
+
+**Next action:** Report full status to the user. Await direction on: (a) whether to commit the accumulated changes, (b) the still-open items in ASSUMPTIONS.md, (c) whether/when to propose a deploy.

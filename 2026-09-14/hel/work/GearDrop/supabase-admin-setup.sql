@@ -19,6 +19,7 @@ as $$
 $$;
 
 revoke all on public.admin_users from anon, authenticated;
+revoke execute on function public.is_admin() from public, anon;
 grant execute on function public.is_admin() to authenticated;
 
 create policy "Admins manage every listing"
