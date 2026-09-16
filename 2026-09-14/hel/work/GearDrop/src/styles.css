@@ -32,9 +32,11 @@ nav a:hover{color:var(--text)}
 .sell:hover{background:var(--brass-strong)}
 
 .hero{position:relative;isolation:isolate;min-height:520px;padding:90px 7vw;display:grid;grid-template-columns:1.1fr .9fr;gap:var(--sp-8);align-items:center;background:var(--void);color:var(--paper);overflow:hidden}
-.hero::before{content:"";position:absolute;inset:0;background:radial-gradient(60% 75% at 78% 15%,rgba(185,138,255,.18),transparent 60%),radial-gradient(45% 60% at 8% 90%,rgba(94,70,138,.24),transparent 60%);pointer-events:none}
-.hero::after{content:"";position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.6) 1px,transparent 1.5px),radial-gradient(rgba(185,138,255,.7) 1px,transparent 1.5px);background-size:54px 54px,97px 97px;background-position:0 0,28px 17px;opacity:.5;pointer-events:none}
-.hero>*{position:relative;z-index:1}
+.hero>.hero-strips{position:absolute;inset:0;z-index:0;display:flex;margin:0}
+.hero-strips img{flex:1;min-width:0;height:100%;object-fit:cover;filter:grayscale(1) brightness(.34) sepia(1) hue-rotate(230deg) saturate(3.2) contrast(1.15)}
+.hero::before{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(100deg,var(--void) 0%,rgba(14,12,26,.92) 30%,rgba(14,12,26,.72) 58%,rgba(14,12,26,.58) 100%),radial-gradient(60% 75% at 78% 15%,rgba(185,138,255,.16),transparent 60%),radial-gradient(45% 60% at 8% 90%,rgba(94,70,138,.24),transparent 60%);pointer-events:none}
+.hero::after{content:"";position:absolute;inset:0;z-index:1;background-image:radial-gradient(rgba(255,255,255,.6) 1px,transparent 1.5px),radial-gradient(rgba(185,138,255,.7) 1px,transparent 1.5px);background-size:54px 54px,97px 97px;background-position:0 0,28px 17px;opacity:.5;pointer-events:none}
+.hero>*{position:relative;z-index:2}
 .eyebrow{font:12px var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--brass-ink);margin:0 0 var(--sp-3)}
 .hero .eyebrow,.nyx .eyebrow,.safety-hero .eyebrow{color:var(--accent-on-dark)}
 .hero h1{font-size:clamp(36px,5.2vw,62px);line-height:1.04;letter-spacing:-.02em}
