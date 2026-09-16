@@ -503,3 +503,29 @@ Kept a `isLocalError` ref to distinguish "local validation message that should b
 **Self-review (OWASP-frame):** Still a usability/reliability fix, not a security-boundary change. This iteration specifically corrects a *process* mistake from the prior session — patching the observed symptom (one specific autofill event) instead of the actual mechanism-independent root cause (stale UI state vs. live DOM truth) — which is why the same class of bug kept recurring under slightly different triggers. **Not handled**: the 250ms poll only runs while a local error is visible (negligible cost), but is still a poll rather than an event-driven mechanism — an accepted trade-off given no reliable event exists to replace it with.
 
 **Next action:** Report to user; awaiting commit/push direction (push auto-deploys, as established).
+
+---
+
+## 2026-09-17 — Session 1 (continued) — The actual bug: hardcoded "6" was simply wrong (real minimum is 12)
+
+**This was never an autofill bug at all.** User reported the exact password `Welcome123!` (11 characters — well past any length that should trip a 6-character minimum) still produced "Password must be at least 6 characters," typed manually, no autofill involved, and asked directly whether the number in the message might be wrong. That question was the key — two prior sessions fixed how the stale-error UI *cleared*, without ever questioning whether the number in the message was *correct*.
+
+**Verified directly against the live Supabase Auth API** (not assumed): `POST /auth/v1/signup` with `Welcome123!` returns `{"error_code":"weak_password","msg":"Password should be at least 12 characters.","weak_password":{"reasons":["length"]}}`. This project's real Auth password-policy minimum is **12 characters**, not 6. Also checked whether leaked-password protection was active (a length-independent way this same class of bug could resurface) — confirmed it is not; length is the only active policy.
+
+**Root cause:** `friendlyAuthError()` in `src/supabase.ts` had a broad rule — any error containing "password" and ("short"|"weak"|"least") — that rewrote Supabase's own (correct) message to a hardcoded `"Password must be at least 6 characters."` The real "should be at least 12 characters" message was being silently overwritten with a wrong number on every single attempt. Compounding it, `main.tsx`'s client-side pre-validation used the same wrong hardcoded 6, so even a careful user typing something reasonable like `Welcome123!` (11 characters) would always fail against the *actual* 12-character policy while being told the wrong threshold to fix it against.
+
+**Fix:**
+- `friendlyAuthError()` now passes password-policy messages through verbatim instead of rewriting them — Supabase's own wording is already accurate and safe to show; hardcoding a guess at a server-side policy value was the actual mistake, not the rewriting mechanism itself.
+- `main.tsx`'s client-side check now uses `MIN_PASSWORD_LENGTH = 12` (confirmed against the live API, with a comment on how to re-verify if this project's policy ever changes) and moved the check to only apply during sign-up (it had incorrectly also gated sign-in, which should never re-validate an existing account's password against current policy).
+- Added `tests/unit/auth-errors.test.ts` — a regression test asserting password-policy messages pass through verbatim regardless of the actual number involved, so a future hardcoded-guess mistake like this one would fail the suite immediately.
+- Updated existing E2E assertions from "6 characters" to "12 characters" to match reality.
+
+**Live verification performed** (not just automated tests): reproduced the exact reported password against a running local build via the browser tools — confirmed `Welcome123!` now correctly shows "Password must be at least 12 characters." (accurate, actionable), and confirmed `Welcome123!1` (12 characters) signs up successfully end to end.
+
+**Tests run and results:** `pnpm build` clean. Full `pnpm test`: **23 Vitest (was 20 — added the new auth-errors unit test) + 14 Playwright = 37 total**, all green.
+
+**Self-review (OWASP-frame):** This was a real correctness bug affecting every sign-up attempt with a 6–11 character password — a meaningfully large share of "reasonable-looking" passwords a real user would try first. Also a broader process lesson: two prior sessions treated the symptom (autofill mechanics) as the whole problem because that's what a user's screenshot happened to show alongside it (an autofilled email), without verifying the actual numeric claim in the error message against the real server policy. The user's direct question — "what is the actual password length?" — is what actually found it; asking "is this hardcoded value even correct" should have been the first check, not the third. **Not handled**: no other hardcoded-guess-at-a-server-policy values have been specifically audited for the same mistake pattern elsewhere in the codebase; worth a pass if more auth/validation bugs surface.
+
+**New leftover test accounts**: `welcometest_probe@example.com` and `weaktest_probe@example.com` (created while probing the live Auth API directly), plus `welcometest_verify@example.com` (created during live UI verification) — added to the batch of test-data cleanup items.
+
+**Next action:** Report to user; awaiting commit/push direction (push auto-deploys, as established).
