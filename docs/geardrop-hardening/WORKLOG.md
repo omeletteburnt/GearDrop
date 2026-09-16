@@ -365,4 +365,14 @@
 
 **Current overall status:** All 11 plan phases are now complete except items that were always scoped as "recommend, don't execute" (git-history scrub) or that depend on the user (key rotation, Vercel env var removal, service_role key rotation, test-account cleanup, CI wiring decision). Nothing has been committed or deployed yet — all work remains in the working tree pending explicit approval for either action.
 
-**Next action:** Report full status to the user. Await direction on: (a) whether to commit the accumulated changes, (b) the still-open items in ASSUMPTIONS.md, (c) whether/when to propose a deploy.
+**Next action (superseded, see below):** ~~await commit decision~~ — user said "yes, commit it."
+
+---
+
+## 2026-09-16 — Session 1 (continued) — Committed
+
+**What changed:** Reviewed `git status` after `git add -A` to confirm no secrets were staged (only `.env.example` with placeholder values; `TheKey.env` deletion staged as expected; `.env.local` correctly stayed untracked per `.gitignore`). Committed all 59 changed files in a single commit (`092b73c`, "Harden security, migrate auth stack, and roll out premium design system") on `main`, with a conventional-style message summarizing security/design/testing/hygiene changes. No AI attribution in the message, per the working method. **Not pushed** — this was a local commit only; pushing to the remote requires a separate explicit ask.
+
+**Working tree is now clean.**
+
+**Next action:** Awaiting user direction on: (a) whether/when to push to the remote GitHub repo, (b) resolving the still-open ASSUMPTIONS.md items (key rotation, Vercel env var removal, service_role key rotation, test-data cleanup, CI/staging-project decision), (c) whether/when to propose a Vercel deploy.
