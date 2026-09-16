@@ -480,4 +480,26 @@
 
 **Self-review (OWASP-frame):** Primarily addresses API2:2023-adjacent broken-authentication ergonomics (real recoverable accounts vs. unrecoverable synthesized ones) while introducing one new, explicitly-documented enumeration/oracle risk (the lookup function) — a deliberate, disclosed trade-off rather than a silently-accepted one. Also fixed a genuine data-integrity bug found during the refactor (profile-clobbering on email-based sign-in) before it ever shipped. **Not handled**: no rate limiting on the new RPC; no password-reset flow yet exists to make the "real email" actually useful for account recovery (still the same documented gap from Phase 3.3) — collecting a real email is a necessary precondition for that but doesn't build it.
 
+**Next action (superseded, see below):** ~~report and await direction~~ — committed and pushed per user's "go ahead"; deploy confirmed live.
+
+---
+
+## 2026-09-17 — Session 1 (continued) — Root-causing the *recurring* stale-error bug properly
+
+**Context:** User reported the same-looking stale "Password must be at least 6 characters" error a *third* time, this time with the email field showing browser autofill (blue-highlighted `monmargarcia@yahoo.com`) and asked to check thoroughly why this keeps recurring rather than accept another point patch.
+
+**Why the previous fix (the `:-webkit-autofill`/`animationstart` CSS trick, from the 2026-09-16 session) wasn't enough:** it only fires **once** — the first time a field transitions into the browser's autofill-matched state. It does not fire again if: the field is autofilled a second time, a *different* autofill mechanism is used for a different field (e.g. Chrome's "suggest a strong password" affordance, which can populate the password field through a different code path than a saved-credential autofill), or an extension/password manager sets the value through yet another mechanism entirely. In the reported screenshot, the email field was autofilled (which the trick does handle) but the password field's ~10-character value most likely arrived through a different mechanism that never re-triggered the CSS animation for that field, so its stale error just sat there. This is a fundamentally fragile approach — every fix in this direction is chasing one more event-emission edge case among an open-ended set.
+
+**Actual fix — stopped depending on events at all.** Extracted the three local validation checks into a pure `localAuthError(mode, identifier, email, password)` function, and while a *local* validation error is displayed, poll the form's live values every 250ms via `FormData` on a form ref and clear the message the instant it's no longer true — regardless of what changed the field or whether anything fired an event to say so. This is correct by construction: it directly inspects the DOM state rather than inferring it from event side-channels.
+
+Kept a `isLocalError` ref to distinguish "local validation message that should be cleared reactively" from "server-side message (wrong password, already registered, etc.) that should persist until the next explicit submit" — confirmed via a throwaway test that a genuine server error is *not* incorrectly cleared by the poll (would have been an easy regression to introduce here: naively clearing on live re-validation could wipe legitimate server errors too).
+
+**Removed the superseded CSS mechanism** (`tokens.css`'s `autofill-detect` keyframe and the `onAnimationStart` handlers) rather than leaving it alongside the new fix as dead code.
+
+**Test rewritten to prove the actual worst case**, not a proxy for it: sets the password field's value via the native property setter and dispatches **zero events of any kind** — no `input`, `change`, or `animationstart` — and confirms the stale error still clears. This is strictly harder than what real autofill does (real autofill at least changes CSS pseudo-class state) and passing it means the fix is correct independent of *any* future autofill mechanism, not just the ones observed so far. Also verified via two throwaway tests (not committed) that: a real server-side error is untouched by the poll for over a second, and normal live editing still updates errors correctly across multiple submit attempts.
+
+**Tests run and results:** `pnpm build` clean. Full `pnpm test`: **20 Vitest + 14 Playwright (34 total)**, all green, re-run twice for stability.
+
+**Self-review (OWASP-frame):** Still a usability/reliability fix, not a security-boundary change. This iteration specifically corrects a *process* mistake from the prior session — patching the observed symptom (one specific autofill event) instead of the actual mechanism-independent root cause (stale UI state vs. live DOM truth) — which is why the same class of bug kept recurring under slightly different triggers. **Not handled**: the 250ms poll only runs while a local error is visible (negligible cost), but is still a poll rather than an event-driven mechanism — an accepted trade-off given no reliable event exists to replace it with.
+
 **Next action:** Report to user; awaiting commit/push direction (push auto-deploys, as established).
