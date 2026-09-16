@@ -6,8 +6,19 @@ button{cursor:pointer}
 ::selection{background:var(--brass);color:#1a1200}
 h1,h2,h3{font-family:var(--font-display);font-weight:700;letter-spacing:-.01em;text-wrap:balance;margin:0}
 
+/* Scroll-triggered reveal for each major section as it enters the viewport. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    section{animation:section-in .6s ease-out both;animation-timeline:view();animation-range:entry 0% cover 30%}
+  }
+}
+@keyframes section-in{from{opacity:0;translate:0 22px}to{opacity:1;translate:0 0}}
+
 nav{height:76px;display:flex;align-items:center;justify-content:space-between;padding:0 7vw;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
 .brand{font-family:var(--font-display);font-size:21px;font-weight:700;letter-spacing:-.02em;color:var(--text);text-decoration:none}
+nav a{position:relative}
+nav a:not(.brand)::after{content:"";position:absolute;left:0;right:100%;bottom:-4px;height:2px;background:var(--brass);transition:right var(--dur-2) var(--ease)}
+nav a:not(.brand):hover::after{right:0}
 .brand span{color:var(--brass-ink)}
 nav div{display:flex;gap:var(--sp-5);align-items:center}
 nav a{font-size:14px;color:var(--text-soft);text-decoration:none;transition:color var(--dur-1) var(--ease)}
@@ -46,7 +57,8 @@ nav a:hover{color:var(--text)}
 .categories button{min-height:140px;text-align:left;padding:var(--sp-5);border:1px solid var(--border);border-radius:var(--radius-m);background:var(--surface);color:var(--text);transition:transform var(--dur-2) var(--ease),box-shadow var(--dur-2) var(--ease),border-color var(--dur-2) var(--ease)}
 .categories button:hover,.categories button.active{border-color:var(--brass);transform:translateY(-4px);box-shadow:var(--shadow-2)}
 .categories button.active{background:var(--brass-soft)}
-.categories b{display:block;font-size:26px;margin-bottom:var(--sp-4)}
+.categories b{display:block;font-size:26px;margin-bottom:var(--sp-4);transition:translate var(--dur-2) var(--ease)}
+.categories button:hover b{translate:0 -3px}
 .categories span,.categories small{display:block}
 .categories span{font-weight:600}
 .categories small{font-size:11px;color:var(--text-soft);margin-top:6px}
@@ -92,7 +104,9 @@ nav a:hover{color:var(--text)}
 .card:hover,.card:focus-visible{transform:translateY(-4px);box-shadow:var(--shadow-2)}
 .card:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 .product-art{aspect-ratio:4/3;position:relative;background:var(--surface-2)}
-.product-art img{width:100%;height:100%;object-fit:cover;display:block}
+.product-art{overflow:hidden}
+.product-art img{width:100%;height:100%;object-fit:cover;display:block;transition:transform var(--dur-2) var(--ease)}
+.card:hover .product-art img{transform:scale(1.06)}
 .product-art .tag-badge{position:absolute;top:10px;right:10px}
 .card>div:last-child{padding:var(--sp-4)}
 .card small{font:11px var(--font-mono);color:var(--text-soft);text-transform:uppercase;letter-spacing:.03em}
@@ -135,7 +149,8 @@ nav a:hover{color:var(--text)}
 .sell-form textarea{height:75px;resize:vertical}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4)}
 
-.toast{position:fixed;bottom:24px;left:50%;translate:-50%;z-index:40;background:var(--void);color:var(--paper);padding:13px 18px;border-radius:var(--radius-m);box-shadow:var(--shadow-2);font-size:14px}
+.toast{position:fixed;bottom:24px;left:50%;translate:-50% 0;z-index:40;background:var(--void);color:var(--paper);padding:13px 18px;border-radius:var(--radius-m);box-shadow:var(--shadow-2);font-size:14px;animation:toast-in var(--dur-2) var(--ease)}
+@keyframes toast-in{from{opacity:0;translate:-50% 12px}to{opacity:1;translate:-50% 0}}
 .empty{grid-column:1/-1;padding:var(--sp-6);background:var(--surface);border:1px dashed var(--border);border-radius:var(--radius-m);color:var(--text-soft);text-align:center}
 .card-skeleton{aspect-ratio:3/4;border-radius:var(--radius-m);border:1px solid var(--border);background:linear-gradient(100deg,var(--surface) 30%,var(--surface-2) 45%,var(--surface) 60%);background-size:250% 100%;animation:skeleton-shimmer 1.4s ease infinite}
 @keyframes skeleton-shimmer{0%{background-position:120% 0}100%{background-position:-20% 0}}

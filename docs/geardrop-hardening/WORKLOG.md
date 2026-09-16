@@ -375,4 +375,52 @@
 
 **Working tree is now clean.**
 
-**Next action:** Awaiting user direction on: (a) whether/when to push to the remote GitHub repo, (b) resolving the still-open ASSUMPTIONS.md items (key rotation, Vercel env var removal, service_role key rotation, test-data cleanup, CI/staging-project decision), (c) whether/when to propose a Vercel deploy.
+**Next action (superseded, see below):** ~~awaiting push decision~~ — user said "push it."
+
+---
+
+## 2026-09-16 — Session 1 (continued) — Pushed to origin/main
+
+**What happened:**
+- First push attempt failed: this environment's git/`gh` credentials were authenticated as `monmargarcia`, who has no write access to `omeletteburnt/GearDrop`. User re-authenticated `gh` as `omeletteburnt`, but `git` was still using a stale cached credential via the `osxkeychain` credential helper (separate from `gh`'s own token store) — worked around this **without changing any global git config** by overriding `credential.helper` for single commands only (`git -c credential.helper= -c credential.helper="!gh auth git-credential" ...`).
+- Second push attempt failed for a different, legitimate reason: `origin/main` had 2 commits this session didn't have — someone had pushed directly to GitHub: `2b3e42e` ("Add files via upload", touching `notes.docx`) and `65b5a27` ("Delete 2026-09-14/hel/work/GearDrop/TheKey.env" — **the user manually deleted the leaked secret file directly on GitHub**, independent of and consistent with this session's own Phase 1 work).
+- Fetched and inspected the diff before doing anything (per the git-safety protocol) — both remote commits were compatible with local work, no actual conflict in intent. Ran `git pull --rebase origin main` — rebased cleanly, no conflicts.
+- **Re-ran the full verification after the rebase** rather than assuming a clean rebase meant nothing broke: `pnpm build` clean, `pnpm test` → 20 Vitest + 10 Playwright, all green.
+- Pushed successfully: `origin/main` is now at `b405c16`, matching local `main` exactly.
+
+**Decisions made:** Used a per-command credential-helper override instead of modifying `~/.gitconfig` or `.git/config`, since a persistent global credential change wasn't asked for and could affect other repos/sessions on this machine.
+
+**Current state:** Local and remote `main` are in sync. Nothing else pending except the previously-flagged ASSUMPTIONS.md items (independent of git): AI key rotation at the provider, Vercel env var removal, `service_role` key rotation, Supabase test-data cleanup (accounts + the `should-not-insert` listing), and the staging-project/CI-key decision before any CI wiring.
+
+**Next action (superseded, see below):** ~~awaiting direction~~ — user reported "sign-up/create account is also not working" and asked for more animations.
+
+---
+
+## 2026-09-16 — Session 1 (continued) — Important discovery: Vercel auto-deploys on push, plus a real sign-up bug fix
+
+**Important discovery, flagged immediately to the user:** Checking the live site (`gear-drop-4xza.vercel.app`) to investigate the reported bug revealed it already showed the full redesign — the earlier `git push` had triggered an **automatic Vercel production deployment** (GitHub-integration default behavior), without an explicit deploy proposal/approval step as the working method calls for. Confirmed via the deployed JS bundle hash (`index-GPCzIxzB.js`) matching the exact local build. Noted as something to watch going forward: on this project, pushing to `main` **is** effectively deploying to production.
+
+**Bug investigation:** Reproduced against the live site using the `claude-in-chrome` browser tools (not just automated Playwright, to match the user's actual reported experience as closely as possible).
+- A **fresh, never-used username** signs up correctly and instantly (dialog closes, session active) — confirmed working.
+- A **duplicate username** correctly shows "That username is already taken." — confirmed working.
+- The actual bug: a **password under 6 characters** (native HTML5 `minLength="6"` constraint) silently blocked the `onSubmit` handler from ever running — the browser intercepts the `submit` event before our JS sees it. Compounded by the `message` state never being cleared between attempts, so a stale error from a *previous* attempt (e.g., "username already taken") would sit on screen indefinitely, making a subsequent silent-failure attempt look like "nothing is happening" or "still broken from before." This combination is exactly what "sign-up is not working" would look like to a real user.
+
+**Fix (`src/main.tsx`, `Auth` component):**
+- Added `noValidate` to the form so our own JS validation always runs instead of the browser silently intercepting `submit`.
+- Added explicit username (≥3 chars) and password (≥6 chars) checks at the top of `submit()`, mirroring the `validateListing()` pattern from Phase 4, with clear messages.
+- Messages now clear automatically when the user edits either field, or switches between sign-in/sign-up mode — no more stale errors.
+- Replaced the barely-styled `.warning` class with the dedicated `.field-error` component (defined in `tokens.css` back in Phase 9.1 but never actually used until now), with `role="alert"` for screen-reader announcement.
+- Added a `submitting` state disabling the button and showing "Please wait…" during the request, so a slow network doesn't invite a confusing double-click either.
+- Added a permanent regression test (`tests/e2e/critical-flows.spec.ts`) proving the short-password case shows a clear inline error (not silence) and that editing the field clears it.
+
+**Animation additions** (user asked for more, explicitly): restored a scroll-triggered section reveal (`animation-timeline: view()`) that existed in the *original* pre-redesign `styles.css` but was accidentally dropped during the Phase 9.1 rewrite; added a nav-link underline hover, product-card image hover-zoom, toast slide-in, and a category-icon hover lift.
+
+**Real bug caught while adding the scroll-reveal**: the reduced-motion fallback only shortened animation *durations*, which does nothing for a scroll-linked timeline (its progress is driven by scroll position, not time) — under `prefers-reduced-motion`, sections would have stayed invisible forever since the timeline could never "complete." Fixed by gating the whole animation behind `@media (prefers-reduced-motion: no-preference)` so reduced-motion users simply see full content immediately, which is the correct fallback.
+
+**Test-suite lesson learned**: the axe accessibility tests initially failed after restoring the scroll-reveal. First hypothesis (scroll-then-scroll-back-to-top to "reveal everything") was itself wrong — `animation-timeline: view()` continuously re-links to scroll position, so scrolling back up un-reveals sections again; it's not a one-shot trigger. Fixed by testing contrast under `reducedMotion: "reduce"` (Playwright's `test.use()`), which is both simpler and more correct: contrast auditing should check the page's stable rendered colors, not chase a moving mid-scroll animation frame.
+
+**Tests run and results:** `pnpm build` clean throughout. Final `pnpm test`: **20 Vitest + 11 Playwright (31 total)**, all green, re-run twice for stability.
+
+**Self-review (OWASP-frame):** The sign-up fix closes a real usability/reliability defect (not a security one) — the account was actually being created server-side in the broken case some of the time, but the UI gave the user no way to know that, which could lead to duplicate signup attempts or abandoned accounts. **Not handled**: the Vercel auto-deploy behavior discovery means recent pushes have already gone live without an explicit deploy conversation — flagging this prominently to the user rather than treating it as routine, since the working method calls for deploys to be proposed and confirmed individually.
+
+**Next action:** Report the auto-deploy discovery and the bug fix to the user clearly. Awaiting direction — since the fix is already live via auto-deploy, likely just needs confirmation this is acceptable going forward, plus a decision on whether to disable Vercel's auto-deploy-on-push if that's not the desired workflow.
