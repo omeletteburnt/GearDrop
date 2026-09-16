@@ -49,6 +49,33 @@ test("sign-up shows clear validation errors instead of silently doing nothing", 
   await expect(authDialog.getByRole("alert")).toHaveCount(0);
 });
 
+test("stale error clears on browser autofill, not just manual typing", async ({ page }) => {
+  // Browser/password-manager autofill sets an input's value via the native
+  // setter without dispatching the events React's onChange listens for, so
+  // a naive onChange-only clear leaves a stale error on screen even though
+  // the field now holds a valid value. Playwright can't trigger real browser
+  // autofill, so this reproduces the exact mechanism: set the value the way
+  // autofill does (native setter, no input/change event), then fire the
+  // animationstart event our CSS-based autofill-detection hook listens for
+  // (see tokens.css's :-webkit-autofill keyframe), and confirm it recovers.
+  await page.goto("/");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  const authDialog = page.locator('[role="dialog"]').first();
+  await authDialog.getByRole("button", { name: "Need an account? Sign up" }).click();
+  await authDialog.locator('input[name="username"]').fill(`autofilltest_${suffix}`);
+  await authDialog.locator('input[name="password"]').fill("abc");
+  await authDialog.getByRole("button", { name: "Create account" }).click();
+  await expect(authDialog.getByRole("alert")).toHaveText(/at least 6 characters/i);
+
+  await page.evaluate(() => {
+    const input = document.querySelector('input[name="password"]') as HTMLInputElement;
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")!.set!;
+    setter.call(input, "AutofilledPassword123!");
+    input.dispatchEvent(new AnimationEvent("animationstart", { animationName: "autofill-detect", bubbles: true }));
+  });
+  await expect(authDialog.getByRole("alert")).toHaveCount(0);
+});
+
 test("sign-up -> create a listing -> delete it", async ({ page }) => {
   const username = `e2e_flow_${suffix}`;
 

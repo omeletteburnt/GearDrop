@@ -435,4 +435,22 @@
 
 **Current state:** `origin/main` at `4f05815`, live production deployment matches. Working tree clean.
 
-**Next action:** None planned. Remaining open items are all in `ASSUMPTIONS.md` (key rotations, Supabase test-data cleanup, CI/staging-project decision) and require user action, not further code changes.
+**Next action (superseded, see below):** ~~none planned~~ — user reported still seeing the sign-up issue, with a screenshot.
+
+---
+
+## 2026-09-16 — Session 1 (continued) — Real follow-up bug: autofill doesn't clear stale errors
+
+**What happened:** User sent a screenshot showing the "Password must be at least 6 characters." error still displayed, with the username field showing a browser-autofilled email (`monmargarcia@yahoo.com`, visibly highlighted blue — Chrome's autofill indicator) and a password field with ~10 characters already entered.
+
+**Root cause:** Chrome (and most autofill/password-manager mechanisms) sets an input's value using the native property setter, which does **not** dispatch the `input`/`change` events that React's `onChange` listens for. The stale-error-clearing logic added in the previous fix (`onChange={() => setMessage("")}`) never ran for autofilled fields, so a leftover error from an earlier failed attempt stayed on screen even after autofill supplied a valid password — looking exactly like "still broken," even though a real submit click would very likely have succeeded.
+
+**Fix (`src/tokens.css`, `src/main.tsx`):** Standard cross-browser autofill-detection technique — bound a 1ms no-op CSS keyframe to the `:-webkit-autofill`/`:autofill` pseudo-class, and added an `onAnimationStart` handler on both fields that clears the stale message when that specific animation fires (autofill and only autofill triggers it). Kept the existing `onChange` clearing too, for normal typing/pasting.
+
+**Test added:** Playwright can't trigger real OS/browser-level autofill, so `tests/e2e/critical-flows.spec.ts` reproduces the exact underlying mechanism instead of the visual autofill UI: sets the password input's value via the native property setter (bypassing React's synthetic events, exactly like autofill does) and dispatches the same `animationstart` event Chrome fires, then asserts the stale error clears. This tests the real fix mechanism, not just a proxy for it.
+
+**Tests run and results:** `pnpm build` clean. Full `pnpm test`: **20 Vitest + 12 Playwright (32 total)**, all green.
+
+**Self-review (OWASP-frame):** Another usability/reliability fix, not a security boundary change. **Not handled**: no way to test actual OS-level password-manager autofill (1Password, Bitwarden, etc.) in this automated suite — the fix targets the documented `:autofill`/`:-webkit-autofill` CSS pseudo-class mechanism that these tools also trigger through the browser's native autofill API, but hasn't been manually verified against a specific third-party password manager extension.
+
+**Next action:** Awaiting user confirmation this resolves what they saw, then commit/push per their direction (push auto-deploys, as previously flagged).
