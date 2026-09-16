@@ -35,7 +35,11 @@ nav a:hover{color:var(--text)}
 .hero>.hero-strips{position:absolute;inset:0;z-index:0;display:flex;margin:0}
 .hero-strips img{flex:1;min-width:0;height:100%;object-fit:cover;filter:grayscale(1) brightness(.34) sepia(1) hue-rotate(230deg) saturate(3.2) contrast(1.15)}
 .hero::before{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(100deg,var(--void) 0%,rgba(14,12,26,.92) 30%,rgba(14,12,26,.72) 58%,rgba(14,12,26,.58) 100%),radial-gradient(60% 75% at 78% 15%,rgba(185,138,255,.16),transparent 60%),radial-gradient(45% 60% at 8% 90%,rgba(94,70,138,.24),transparent 60%);pointer-events:none}
-.hero::after{content:"";position:absolute;inset:0;z-index:1;background-image:radial-gradient(rgba(255,255,255,.6) 1px,transparent 1.5px),radial-gradient(rgba(185,138,255,.7) 1px,transparent 1.5px);background-size:54px 54px,97px 97px;background-position:0 0,28px 17px;opacity:.5;pointer-events:none}
+.hero::after{content:"";position:absolute;inset:0;z-index:1;background-image:repeating-linear-gradient(98deg,rgba(255,255,255,.09) 0,rgba(255,255,255,.09) 1px,transparent 1px,transparent 68px),repeating-linear-gradient(98deg,rgba(185,138,255,.16) 0,rgba(185,138,255,.16) 2px,transparent 2px,transparent 160px);background-size:340px 100%,800px 100%;opacity:.7;pointer-events:none}
+@media (prefers-reduced-motion: no-preference){
+  .hero::after{animation:wind-flow 16s linear infinite}
+}
+@keyframes wind-flow{from{background-position:0 0,0 0}to{background-position:340px 0,800px 0}}
 .hero>*{position:relative;z-index:2}
 .eyebrow{font:12px var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--brass-ink);margin:0 0 var(--sp-3)}
 .hero .eyebrow,.nyx .eyebrow,.safety-hero .eyebrow{color:var(--accent-on-dark)}
