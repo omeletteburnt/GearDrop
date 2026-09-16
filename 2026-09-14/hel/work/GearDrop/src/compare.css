@@ -15,9 +15,9 @@
 .compare-nyx{background:var(--void);color:var(--paper);padding:var(--sp-5);border-radius:var(--radius-m)}
 .compare-nyx h3{margin:0 0 6px}
 .compare-nyx p{font-size:13px;color:#c7bfdd}
-.mini-nyx{font-size:26px;color:var(--brass);animation:nyx-spark 2.4s ease-in-out infinite}
+.mini-nyx{font-size:26px;color:var(--accent-on-dark);animation:nyx-spark 2.4s ease-in-out infinite}
 .compare-nyx textarea{width:100%;min-height:88px;padding:12px;border:1px solid rgba(255,255,255,.14);border-radius:var(--radius-s);background:rgba(0,0,0,.25);color:var(--paper);resize:vertical}
-.compare-nyx textarea:focus-visible{outline:2px solid var(--brass);outline-offset:1px}
+.compare-nyx textarea:focus-visible{outline:2px solid var(--accent-on-dark);outline-offset:1px}
 .compare-nyx .btn{margin-top:var(--sp-3);width:100%}
 @media(max-width:800px){.compare-workspace{grid-template-columns:1fr}.compare-table{grid-template-columns:100px 1fr 1fr}}
 @media(max-width:500px){.compare-section{padding:60px 6vw}.compare-table{grid-template-columns:1fr 1fr}.compare-head:first-child,.compare-row>b{display:none}.compare-head{min-height:110px}.compare-row>div{font-size:11px}}
