@@ -39,11 +39,20 @@ async function resolveEmailForIdentifier(identifier: string): Promise<string | n
 }
 
 // Known Supabase Auth error messages are re-worded so raw provider text
-// (which can hint at account existence or internal state) never reaches the UI.
-function friendlyAuthError(message: string): string {
+// (which can hint at account existence or internal state) never reaches the
+// UI — EXCEPT password-policy messages (length, leaked/weak-password check,
+// etc.), which are passed through verbatim. Supabase's own wording there is
+// already accurate and safe to show; a previous version of this function
+// rewrote every such message to a hardcoded "at least 6 characters," which
+// was simply wrong once (or if) the project's real policy differs — e.g.
+// this project's actual Auth minimum is 12 characters, not 6, so real
+// "should be at least 12 characters" errors were being overwritten with an
+// incorrect number. Never hardcode a guess at a server-side policy value;
+// only the server actually knows what the policy is.
+export function friendlyAuthError(message: string): string {
   if (/invalid login credentials/i.test(message)) return "Incorrect username/email or password.";
   if (/already registered|already exists/i.test(message)) return "That email is already registered.";
-  if (/password/i.test(message) && /short|weak|least/i.test(message)) return "Password must be at least 6 characters.";
+  if (/password/i.test(message)) return message;
   return "Something went wrong. Please try again.";
 }
 

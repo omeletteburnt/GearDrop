@@ -42,7 +42,7 @@ test("sign-up shows clear validation errors instead of silently doing nothing", 
   await authDialog.locator('input[name="email"]').fill(`shortpw_${suffix}@example.com`);
   await authDialog.locator('input[name="password"]').fill("abc");
   await authDialog.getByRole("button", { name: "Create account" }).click();
-  await expect(authDialog.getByRole("alert")).toHaveText(/at least 6 characters/i);
+  await expect(authDialog.getByRole("alert")).toHaveText(/at least 12 characters/i);
   await expect(authDialog).toBeVisible(); // did not silently vanish or hang
 
   // Editing a field should clear the stale error instead of leaving it stuck.
@@ -69,7 +69,7 @@ test("stale error clears even when the field changes with zero JS events", async
   await authDialog.locator('input[name="email"]').fill(`autofilltest_${suffix}@example.com`);
   await authDialog.locator('input[name="password"]').fill("abc");
   await authDialog.getByRole("button", { name: "Create account" }).click();
-  await expect(authDialog.getByRole("alert")).toHaveText(/at least 6 characters/i);
+  await expect(authDialog.getByRole("alert")).toHaveText(/at least 12 characters/i);
 
   await page.evaluate(() => {
     const input = document.querySelector('input[name="password"]') as HTMLInputElement;
