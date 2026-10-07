@@ -3,6 +3,7 @@ import { canConfirmEmailRemoval, getUsername, isEmailLike, isPlaceholderEmail, r
 import { overlayClick, useModalA11y } from "./modal";
 import { ratingSummary, type Rating } from "./reviews";
 import { RatingBadge, ReviewList } from "./ReviewsUI";
+import { nyxStats, type NyxStats } from "./nyx";
 
 type Account = { username: string | null; email: string | null; pendingEmail: string | null };
 const NO_RECOVERY = "Without an email you can’t recover your account if you forget your password.";
@@ -16,6 +17,8 @@ export function Settings({ session, admin, close }: { session: Session; admin: b
   const [reviewTab, setReviewTab] = useState<"seller" | "buyer" | null>(null);
   const loadRating = useCallback(() => ratingSummary([session.user.id]).then(r => setRating(r[session.user.id] ?? null)).catch(() => undefined), [session.user.id]);
   useEffect(() => { loadRating(); }, [loadRating]);
+  const [stats, setStats] = useState<NyxStats | null>(null);
+  useEffect(() => { if (admin) nyxStats().then(setStats); }, [admin]);
   const [removal, setRemoval] = useState<"idle" | "asking" | "sent" | "removed">("idle");
   // Signed in through the emailed removal link within the last 10 minutes.
   const canRemoveNow = canConfirmEmailRemoval(session);
@@ -108,5 +111,15 @@ export function Settings({ session, admin, close }: { session: Session; admin: b
       </button>)}
     </div>
     {reviewTab && <ReviewList userId={session.user.id} role={reviewTab} viewerId={session.user.id} admin={admin} onChange={loadRating} />}
+
+    {admin && <>
+      <h3 className="settings-heading">Nyx usage (admin)</h3>
+      {!stats ? <p className="muted">Loading…</p> : <dl className="settings-list nyx-stats">
+        <div><dt>Questions in the last 24 h</dt><dd>{stats.questions_today}</dd></div>
+        <div><dt>People who asked (24 h)</dt><dd>{stats.users_today}</dd></div>
+        <div><dt>Feedback, last 7 days</dt><dd>👍 {stats.helpful_7d} · 👎 {stats.unhelpful_7d}</dd></div>
+      </dl>}
+      <p className="muted">Answers people rated are in the <b>nyx_feedback</b> table in Supabase.</p>
+    </>}
   </div></div>;
 }

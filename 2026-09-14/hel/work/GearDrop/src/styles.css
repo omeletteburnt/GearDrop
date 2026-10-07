@@ -82,10 +82,6 @@ nav a:hover{color:var(--text)}
 .nyx .example{color:var(--accent-on-dark)}
 .nyx-wave{border:1px solid var(--brass);background:transparent;color:var(--paper);padding:11px 18px;border-radius:99px;font-weight:600;transition:background var(--dur-1) var(--ease),color var(--dur-1) var(--ease)}
 .nyx-wave:hover{background:var(--brass);color:var(--on-accent)}
-.question-row{display:flex;gap:var(--sp-2)}
-.question-row button,.ask-product button{border:0;background:var(--brass);color:var(--on-accent);padding:11px 16px;font-weight:600;border-radius:var(--radius-s);transition:background var(--dur-1) var(--ease)}
-.question-row button:hover,.ask-product button:hover{background:var(--brass-strong)}
-.nyx-answer{padding:12px 14px;background:rgba(109,60,199,.22)!important;color:var(--paper)!important;font-size:13.5px;margin:var(--sp-4) 0 0;border-radius:var(--radius-s);border:1px solid rgba(185,138,255,.3)}
 .muted{color:var(--text-soft);font-size:14px}
 
 .recommendations{background:var(--surface-2)}
@@ -145,9 +141,6 @@ nav a:hover{color:var(--text)}
 .missing{background:var(--warn-soft);border-radius:var(--radius-m);padding:var(--sp-4);font-size:13.5px}
 .missing b{color:var(--warn);display:block;margin-bottom:4px;font:12px var(--font-mono);text-transform:uppercase;letter-spacing:.04em;font-weight:500}
 .ask-product{padding:var(--sp-4);background:var(--surface-2);margin:var(--sp-4) 0;font-size:13px;border-radius:var(--radius-m)}
-.ask-product div{display:flex;gap:var(--sp-2);margin-top:var(--sp-3)}
-.ask-product input{min-width:0;flex:1;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-s);background:var(--surface)}
-.ask-product input:focus-visible{outline:2px solid var(--brass);outline-offset:1px}
 
 .sell-form{max-width:530px;padding:var(--sp-7)}
 .sell-form label{display:block;font-size:13px;font-weight:600;margin:var(--sp-4) 0 var(--sp-2)}
@@ -182,5 +175,4 @@ nav a:hover{color:var(--text)}
   .rec>img{width:120px}
   .detail>div{padding:var(--sp-6) 18px}
   .form-row{grid-template-columns:1fr}
-  .ask-product div,.question-row{flex-direction:column}
 }
