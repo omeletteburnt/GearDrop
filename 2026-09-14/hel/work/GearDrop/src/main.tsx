@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type SyntheticEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { categories, starterListings, type Category, type Listing } from "./data";
-import { deleteListing, getSession, isAdmin, isEmailLike, loadListings, onSessionChange, saveListing, signIn, signOut, signUp, type Session } from "./supabase";
+import { canConfirmEmailRemoval, deleteListing, getSession, REMOVE_EMAIL_FLAG, isAdmin, isEmailLike, loadListings, onSessionChange, saveListing, signIn, signOut, signUp, type Session } from "./supabase";
 import { rank } from "./recommend";
 import { safeImageUrl, validateListing } from "./validation";
 import { overlayClick, useModalA11y } from "./modal";
 import { clearLocalKeys, deliverHeld, forgetConversationKeys, openConversation, setupChatKeys, type Conversation } from "./chat";
 import { ChatWindow, Inbox, useUnread } from "./ChatUI";
+import { Settings } from "./Settings";
 import "./chat.css";
+import "./settings.css";
 import "./tokens.css";
 import "./styles.css";
 import "./theme.css";
@@ -28,7 +30,9 @@ function App() {
   const [selected,setSelected]=useState<Listing|null>(null); const [selling,setSelling]=useState(false); const [toast,setToast]=useState(""); const [session,setSession]=useState<Session|null>(null); const [admin,setAdmin]=useState(false); const [auth,setAuth]=useState(false); const [compare,setCompare]=useState<Listing[]>([]); const [compareQuestion,setCompareQuestion]=useState(""); const [compareAnswer,setCompareAnswer]=useState(""); const [deleteCandidate,setDeleteCandidate]=useState<Listing|null>(null);
   // Deliver any "waiting to deliver" messages whose recipient has since signed in.
   useEffect(()=>{if(session)deliverHeld(session.user.id).catch(()=>undefined);},[session?.user.id]);
-  const [inbox,setInbox]=useState(false); const [chat,setChat]=useState<Conversation|null>(null); const [unread,refreshUnread]=useUnread(session);
+  const [inbox,setInbox]=useState(false); const [settings,setSettings]=useState(false);
+  // Back from the "remove my email" link: reopen Settings for the final confirm.
+  useEffect(()=>{if(session&&localStorage.getItem(REMOVE_EMAIL_FLAG)&&canConfirmEmailRemoval(session))setSettings(true);},[session]); const [chat,setChat]=useState<Conversation|null>(null); const [unread,refreshUnread]=useUnread(session);
   const [theme,setTheme]=useState<"light"|"dark">(() => window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
   const [page,setPage]=useState(()=>window.location.hash.startsWith("#privacy-safety")?"safety":"market");
   useEffect(()=>{document.documentElement.dataset.theme=theme;},[theme]);
@@ -41,9 +45,9 @@ function App() {
   const picks=useMemo(()=>items.filter(x=>x.status==="Available").sort((a,b)=>rank(b,need)-rank(a,need)).slice(0,3),[items,need]);
   function generalAnswer(){const best=picks[0];setAnswer(best?"Nyx suggests starting with "+best.name+". It is available for $"+best.price+" and is listed as "+best.condition.toLowerCase()+" condition.":"Ask Nyx about a category or your budget.");}
   async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!session){setSelling(false);setAuth(true);return;}const f=new FormData(e.currentTarget);const details=String(f.get("details"));const draft={seller:String(f.get("seller")||""),name:String(f.get("name")||""),category:String(f.get("category")||""),price:String(f.get("price")||""),condition:String(f.get("condition")||""),description:String(f.get("description")||""),details};const validated=validateListing(draft);if("error" in validated){setToast(validated.error);setTimeout(()=>setToast(""),4000);return;}const listing={...validated.value,status:"Available" as const,image:photos[validated.value.category],specs:{Details:details||"Seller has not added specifications."},missing:details?[]:["Key specifications"]};if(!details&&!window.confirm("Are you sure you want to proceed? You are missing key specifications that buyers may be looking for."))return;try{const saved=await saveListing(listing);setItems(old=>[{...saved,id:saved.id+1000000},...old]);setSelling(false);setToast("Your product is now listed. Good luck!");}catch(error){setToast(error instanceof Error?error.message:"Could not save listing.");}setTimeout(()=>setToast(""),4000);}
-  const navigation=<nav><a className="brand" href="#top">GEAR<span>DROP</span></a><div><a href="#browse">Browse</a><a href="#nyx">Ask Nyx</a><a href="#privacy-safety-questions">Privacy &amp; Safety</a>{admin&&<span className="admin-badge">Admin</span>}<button className="theme-toggle" onClick={()=>setTheme(theme==="light"?"dark":"light")} aria-label="Toggle colour theme">{theme==="light"?"☾":"☀"}</button>{session&&<button className="login messages-btn" onClick={()=>setInbox(true)} aria-label={unread?`Messages, ${unread} unread`:"Messages"}>Messages{unread>0&&<span className="unread-badge" aria-hidden="true">{unread}</span>}</button>}{session?<button className="login" onClick={async()=>{setChat(null);setInbox(false);await clearLocalKeys();forgetConversationKeys();await signOut();setToast("You have been logged out.");}}>Log out</button>:<button className="login" onClick={()=>setAuth(true)}>Sign in</button>}<button className="sell" onClick={()=>session?setSelling(true):setAuth(true)}>+ Sell gear</button></div></nav>;
+  const navigation=<nav><a className="brand" href="#top">GEAR<span>DROP</span></a><div><a href="#browse">Browse</a><a href="#nyx">Ask Nyx</a><a href="#privacy-safety-questions">Privacy &amp; Safety</a>{admin&&<span className="admin-badge">Admin</span>}<button className="theme-toggle" onClick={()=>setTheme(theme==="light"?"dark":"light")} aria-label="Toggle colour theme">{theme==="light"?"☾":"☀"}</button>{session&&<button className="login messages-btn" onClick={()=>setInbox(true)} aria-label={unread?`Messages, ${unread} unread`:"Messages"}>Messages{unread>0&&<span className="unread-badge" aria-hidden="true">{unread}</span>}</button>}{session&&<button className="login" onClick={()=>setSettings(true)}>Settings</button>}{session?<button className="login" onClick={async()=>{setChat(null);setInbox(false);setSettings(false);await clearLocalKeys();forgetConversationKeys();await signOut();setToast("You have been logged out.");}}>Log out</button>:<button className="login" onClick={()=>setAuth(true)}>Sign in</button>}<button className="sell" onClick={()=>session?setSelling(true):setAuth(true)}>+ Sell gear</button></div></nav>;
   async function messageSeller(item:Listing){if(!session){setSelected(null);setAuth(true);return;}if(!item.databaseId)return;try{const conv=await openConversation(item.databaseId);setSelected(null);setChat(conv);}catch(error){setToast(error instanceof Error?error.message:"Could not start this conversation.");setTimeout(()=>setToast(""),4000);}}
-  const chatModals=session&&<>{inbox&&<Inbox session={session} close={()=>setInbox(false)} open={conv=>{setInbox(false);setChat(conv);}}/>}{chat&&<ChatWindow key={chat.id} session={session} conv={chat} close={()=>setChat(null)} onRead={refreshUnread}/>}</>;
+  const chatModals=session&&<>{inbox&&<Inbox session={session} close={()=>setInbox(false)} open={conv=>{setInbox(false);setChat(conv);}}/>}{chat&&<ChatWindow key={chat.id} session={session} conv={chat} close={()=>setChat(null)} onRead={refreshUnread}/>}{settings&&<Settings session={session} close={()=>setSettings(false)}/>}</>;
   if(page==="safety")return <main>{navigation}<SafetyPage/>{chatModals}{toast&&<div className="toast">{toast}</div>}</main>;
   return <main>
     {navigation}
@@ -79,7 +83,7 @@ function localAuthError(mode:"in"|"up",identifier:string,email:string,password:s
   if(mode==="in"&&identifier.length<3)return"Enter your username or email.";
   if(mode==="up"){
     if(identifier.length<3)return"Username must be at least 3 characters.";
-    if(!isEmailLike(email))return"Enter a valid email address.";
+    if(email&&!isEmailLike(email))return"Enter a valid email address, or leave it blank.";
     if(password.length<MIN_PASSWORD_LENGTH)return`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
   }
   return"";
@@ -145,5 +149,5 @@ function Auth({close,complete}:{close:()=>void;complete:(s:Session)=>void}){
     finally{setSubmitting(false);}
   }
   const ref=useRef<HTMLDivElement>(null);useModalA11y(ref,close);
-  return <div className="overlay" onMouseDown={overlayClick(close)}><div className="sell-form" ref={ref} role="dialog" aria-modal="true" aria-label={mode==="in"?"Sign in":"Create account"}><form ref={formRef} onSubmit={submit} noValidate><button type="button" className="close" onClick={close} aria-label="Close">×</button><p className="eyebrow">NYX ACCOUNT</p><h2>{mode==="in"?"Welcome back":"Create account"}</h2><p className="muted">{mode==="in"?"Sign in with your username or email.":"A real email is required so you can recover your account."}</p><label>{mode==="in"?"Username or email":"Username"}<input name="identifier" onChange={clear}/></label>{mode==="up"&&<label>Email<input name="email" type="email" onChange={clear}/></label>}<label>Password<input name="password" type="password" onChange={clear}/></label>{message&&<p className="field-error" role="alert">{message}</p>}<button className="btn primary submit" disabled={submitting}>{submitting?"Please wait…":mode==="in"?"Sign in":"Create account"}</button><button type="button" className="example" onClick={()=>{setMode(mode==="in"?"up":"in");isLocalError.current=false;setMessage("");}}>{mode==="in"?"Need an account? Sign up":"Already have an account? Sign in"}</button></form></div></div>;}
+  return <div className="overlay" onMouseDown={overlayClick(close)}><div className="sell-form" ref={ref} role="dialog" aria-modal="true" aria-label={mode==="in"?"Sign in":"Create account"}><form ref={formRef} onSubmit={submit} noValidate><button type="button" className="close" onClick={close} aria-label="Close">×</button><p className="eyebrow">NYX ACCOUNT</p><h2>{mode==="in"?"Welcome back":"Create account"}</h2><p className="muted">{mode==="in"?"Sign in with your username or email.":"Pick a username and password. Email is optional."}</p><label>{mode==="in"?"Username or email":"Username"}<input name="identifier" onChange={clear}/></label>{mode==="up"&&<label>Email <span className="optional">(optional)</span><input name="email" type="email" onChange={clear}/><small className="field-hint">Without an email you can’t recover your account if you forget your password. You can add one later in Settings.</small></label>}<label>Password<input name="password" type="password" onChange={clear}/></label>{message&&<p className="field-error" role="alert">{message}</p>}<button className="btn primary submit" disabled={submitting}>{submitting?"Please wait…":mode==="in"?"Sign in":"Create account"}</button><button type="button" className="example" onClick={()=>{setMode(mode==="in"?"up":"in");isLocalError.current=false;setMessage("");}}>{mode==="in"?"Need an account? Sign up":"Already have an account? Sign in"}</button></form></div></div>;}
 createRoot(document.getElementById("root")!).render(<App/>);

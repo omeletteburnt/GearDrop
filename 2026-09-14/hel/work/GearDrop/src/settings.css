@@ -1,0 +1,10 @@
+.sell-form .optional{font-weight:500;color:var(--text-soft)}
+.sell-form .field-hint{display:block;margin-top:6px;font-size:12.5px;font-weight:500;line-height:1.45;color:var(--text-soft)}
+.settings-list{margin:var(--sp-5) 0;display:grid;gap:var(--sp-2)}
+.settings-list div{display:flex;justify-content:space-between;gap:var(--sp-4);padding:var(--sp-3) var(--sp-4);background:var(--surface-2);border-radius:var(--radius-m)}
+.settings-list dt{color:var(--text-soft);font-size:13px}
+.settings-list dd{margin:0;font-weight:600;overflow-wrap:anywhere;text-align:right}
+.settings-actions{display:flex;gap:var(--sp-3);margin-top:var(--sp-4)}
+.settings-actions .btn{flex:1}
+.settings-confirm{margin:var(--sp-4) 0;padding:var(--sp-4);border:1px solid var(--bad);border-radius:var(--radius-m);background:var(--bad-soft)}
+.settings-confirm p{margin:6px 0 0}

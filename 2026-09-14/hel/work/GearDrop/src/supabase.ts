@@ -61,8 +61,25 @@ async function ensureProfile(session: Session, username: string) {
   if (error) throw new Error(error.code === "23505" ? "That username is already taken." : "Could not create your seller profile.");
 }
 
+// Supabase Auth always needs an email, so accounts created without one get a
+// random placeholder on this never-deliverable domain. Users never see it and
+// sign in with their username; they can add a real email later in Settings.
+const PLACEHOLDER_DOMAIN = "@nyx.local";
+export const isPlaceholderEmail = (email: string | null | undefined) => !email || email.toLowerCase().endsWith(PLACEHOLDER_DOMAIN);
+
+async function usernameTaken(username: string): Promise<boolean> {
+  const { data } = await supabase.from("profiles").select("id").ilike("username", username.replace(/[\\%_]/g, "\\$&")).limit(1);
+  return Boolean(data?.length);
+}
+
+// `email` may be empty: the account then gets a placeholder address.
 export async function signUp(username: string, email: string, password: string): Promise<Session | null> {
-  const { data, error } = await supabase.auth.signUp({ email: email.trim().toLowerCase(), password });
+  // Checked up front so a taken username doesn't leave behind an auth user
+  // with no profile. The unique constraint in ensureProfile still has the
+  // final say if two people race for the same name.
+  if (await usernameTaken(username.trim())) throw new Error("That username is already taken.");
+  const address = email.trim() ? email.trim().toLowerCase() : `user-${crypto.randomUUID()}${PLACEHOLDER_DOMAIN}`;
+  const { data, error } = await supabase.auth.signUp({ email: address, password });
   if (error) throw new Error(friendlyAuthError(error.message));
   if (data.session) await ensureProfile(data.session, username);
   return data.session;
@@ -83,6 +100,60 @@ export async function signIn(identifier: string, password: string): Promise<Sess
   // clobber a real one with the email string.
   if (!signedInWithEmailDirectly) await ensureProfile(data.session, trimmed);
   return data.session;
+}
+
+export async function getUsername(userId: string): Promise<string | null> {
+  const { data } = await supabase.from("profiles").select("username").eq("id", userId).maybeSingle();
+  return data?.username ?? null;
+}
+
+// Sends a confirmation link to the new address; the email only changes once
+// it is clicked. Requires "Secure email change" to be OFF in Supabase Auth
+// settings, otherwise the (undeliverable) placeholder would also have to confirm.
+export async function requestEmailChange(email: string): Promise<void> {
+  const { error } = await supabase.auth.updateUser({ email: email.trim().toLowerCase() }, { emailRedirectTo: window.location.origin });
+  if (!error) return;
+  if (/already|registered|exists/i.test(error.message)) throw new Error("That email is already used by another account.");
+  if (/rate limit|too many/i.test(error.message)) throw new Error("Too many emails sent. Please try again in a little while.");
+  throw new Error("Could not update your email. Please try again.");
+}
+
+// ---------- removing an email ----------
+// Removal is confirmed by signing in through a one-time link sent to the
+// current email (Supabase's "Magic Link" email). remove_my_email() in
+// supabase-account-setup.sql only accepts sessions created that way in the
+// last 10 minutes.
+export const EMAIL_LINK_WINDOW_MS = 10 * 60 * 1000;
+export const REMOVE_EMAIL_FLAG = "geardrop:remove-email-requested";
+
+export async function sendEmailRemovalLink(email: string): Promise<void> {
+  const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: window.location.origin } });
+  if (!error) { localStorage.setItem(REMOVE_EMAIL_FLAG, "1"); return; }
+  if (/rate limit|too many|seconds/i.test(error.message)) throw new Error("Please wait a minute before requesting another link.");
+  throw new Error("Could not send the confirmation link. Please try again.");
+}
+
+// When the session was created through an emailed link, read from the
+// access token's "amr" claim. Null if it wasn't.
+export function emailLinkSignInAt(accessToken: string): number | null {
+  try {
+    const part = accessToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const claims = JSON.parse(atob(part.padEnd(part.length + (4 - part.length % 4) % 4, "=")));
+    const times = (claims.amr ?? []).filter((a: { method?: string }) => a.method === "otp" || a.method === "magiclink").map((a: { timestamp: number }) => a.timestamp * 1000);
+    return times.length ? Math.max(...times) : null;
+  } catch { return null; }
+}
+
+export function canConfirmEmailRemoval(session: Session, now = Date.now()): boolean {
+  const at = emailLinkSignInAt(session.access_token);
+  return at !== null && now - at < EMAIL_LINK_WINDOW_MS;
+}
+
+export async function removeMyEmail(): Promise<void> {
+  const { error } = await supabase.rpc("remove_my_email");
+  if (error) throw new Error(error.code === "42501" ? "The confirmation link has expired. Please request a new one." : "Could not remove your email. Please try again.");
+  localStorage.removeItem(REMOVE_EMAIL_FLAG);
+  await supabase.auth.refreshSession();
 }
 
 export async function signOut() {
