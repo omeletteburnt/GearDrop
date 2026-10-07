@@ -44,7 +44,7 @@
 .offer-card.mine{align-self:flex-end}
 .offer-card small{color:var(--text-soft);font-size:12px}
 .offer-price{justify-self:start;padding:5px 14px 5px 10px;background:var(--brass);color:var(--on-accent);font:600 22px var(--font-mono);border-radius:3px 14px 14px 3px}
-.offer-card.superseded{opacity:.6;border-left-color:var(--border)}
+.offer-card.superseded{border-left-color:var(--border);background:var(--surface-2)}
 .offer-card.superseded .offer-price{background:var(--surface-2);color:var(--text-soft);text-decoration:line-through}
 .offer-card.agreed{border-left-color:var(--ok)}
 .offer-card .offer-status{font-weight:600}

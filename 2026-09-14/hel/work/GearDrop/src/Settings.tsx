@@ -1,15 +1,21 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { canConfirmEmailRemoval, getUsername, isEmailLike, isPlaceholderEmail, removeMyEmail, requestEmailChange, sendEmailRemovalLink, supabase, REMOVE_EMAIL_FLAG, type Session } from "./supabase";
 import { overlayClick, useModalA11y } from "./modal";
+import { ratingSummary, type Rating } from "./reviews";
+import { RatingBadge, ReviewList } from "./ReviewsUI";
 
 type Account = { username: string | null; email: string | null; pendingEmail: string | null };
 const NO_RECOVERY = "Without an email you can’t recover your account if you forget your password.";
 
-export function Settings({ session, close }: { session: Session; close: () => void }) {
+export function Settings({ session, admin, close }: { session: Session; admin: boolean; close: () => void }) {
   const [account, setAccount] = useState<Account | null>(null);
   const [editing, setEditing] = useState(false);
   const [email, setEmail] = useState(""); const [busy, setBusy] = useState(false);
   const [error, setError] = useState(""); const [sent, setSent] = useState("");
+  const [rating, setRating] = useState<Rating | null>(null);
+  const [reviewTab, setReviewTab] = useState<"seller" | "buyer" | null>(null);
+  const loadRating = useCallback(() => ratingSummary([session.user.id]).then(r => setRating(r[session.user.id] ?? null)).catch(() => undefined), [session.user.id]);
+  useEffect(() => { loadRating(); }, [loadRating]);
   const [removal, setRemoval] = useState<"idle" | "asking" | "sent" | "removed">("idle");
   // Signed in through the emailed removal link within the last 10 minutes.
   const canRemoveNow = canConfirmEmailRemoval(session);
@@ -94,5 +100,13 @@ export function Settings({ session, close }: { session: Session; close: () => vo
       </div>
     </form>}
     {error && <p className="field-error" role="alert">{error}</p>}
+
+    <h3 className="settings-heading">Your ratings</h3>
+    <div className="rating-tabs">
+      {(["seller", "buyer"] as const).map(role => <button key={role} className={`rating-tab${reviewTab === role ? " active" : ""}`} aria-expanded={reviewTab === role} onClick={() => setReviewTab(reviewTab === role ? null : role)}>
+        <small>As {role}</small><RatingBadge rating={role === "seller" ? rating?.asSeller : rating?.asBuyer} />
+      </button>)}
+    </div>
+    {reviewTab && <ReviewList userId={session.user.id} role={reviewTab} viewerId={session.user.id} admin={admin} onChange={loadRating} />}
   </div></div>;
 }

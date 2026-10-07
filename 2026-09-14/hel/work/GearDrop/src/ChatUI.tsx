@@ -4,6 +4,8 @@ import { blockedByMe, conversationKey, deliverHeld, hasChatKey, holdMessage, inc
 import { CONFIRM_DELAY_MS, deriveDeal, normalisePayNowPhone, validOfferAmount, type Deal, type Payload } from "./deal";
 import { safeImageUrl } from "./validation";
 import { overlayClick, useModalA11y } from "./modal";
+import { recordDealStep } from "./reviews";
+import { ReviewBar } from "./ReviewsUI";
 
 const MAX_TEXT = 2000;
 const money = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
@@ -120,10 +122,25 @@ export function ChatWindow({ session, conv, close, onRead }: { session: Session;
 
   const deal = useMemo(() => deriveDeal(messages.flatMap(m => m.payload ? [{ senderId: m.senderId, payload: m.payload }] : []), conv.seller_id, conv.buyer_id), [messages, conv]);
 
+  // Self-heal: re-record your own deal steps (idempotent) in case an earlier
+  // call failed, e.g. the tab closed mid-way.
+  const myConfirmed = deal.agreed && deal.confirmedBy.includes(myId);
+  const paymentSent = Boolean(deal.payment);
+  useEffect(() => {
+    if (!myConfirmed) return;
+    recordDealStep(conv.id, "confirm").then(() => isSeller && paymentSent ? recordDealStep(conv.id, "payment") : undefined).catch(() => undefined);
+  }, [myConfirmed, paymentSent, isSeller, conv.id]);
+
   const send = useCallback(async (payload: Payload) => {
     if (!key) return;
     setError("");
-    try { await sendPayload(conv.id, key, myId, payload); }
+    try {
+      // The server is told about the confirmation BEFORE the other side can
+      // see it, so a payment sent right after always finds both confirmations.
+      if (payload.t === "confirm") await recordDealStep(conv.id, "confirm");
+      await sendPayload(conv.id, key, myId, payload);
+      if (payload.t === "payment") await recordDealStep(conv.id, "payment");
+    }
     catch (e) { setError(e instanceof Error ? e.message : "Message failed to send."); throw e; }
     // Don't rely on Realtime alone to show your own message.
     loadMessages(conv.id, key, lastId.current).then(merge).catch(() => undefined);
@@ -156,6 +173,7 @@ export function ChatWindow({ session, conv, close, onRead }: { session: Session;
           {messages.length === 0 && loaded && <p className="chat-notice">Say hello 👋 {isSeller ? "You can send an offer below once you’ve agreed on the details." : `Ask ${name} anything about the listing.`}</p>}
           {messages.map(m => <Bubble key={m.id} m={m} mine={m.senderId === myId} senderName={m.senderId === myId ? "You" : name} conv={conv} chatKey={key} deal={deal} myId={myId} send={send} openPayment={() => setPaymentOpen(true)} />)}
         </div>
+        {deal.agreed && <ReviewBar convId={conv.id} myId={myId} isSeller={isSeller} otherName={name} paymentSent={paymentSent} />}
         <DealBar deal={deal} isSeller={isSeller} myId={myId} send={send} openPayment={() => setPaymentOpen(true)} disabled={blocked} />
         {blocked ? <p className="chat-notice">You blocked {name}. Unblock them to send messages.</p> : <Composer conv={conv} chatKey={key} myId={myId} send={send} setError={setError} />}
       </>}

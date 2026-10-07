@@ -138,6 +138,45 @@ live("buyer and seller chat, negotiate, confirm, and share PayNow details", asyn
     const { data: rows } = await seller.client.from("messages").select("ciphertext").limit(50);
     expect(rows!.length).toBeGreaterThan(0);
     for (const r of rows!) expect(atob(r.ciphertext)).not.toMatch(/still available|9123|"amount"/);
+
+    // Reviews unlock for both as soon as payment details are sent.
+    await buyerChat.getByRole("button", { name: "Leave a review" }).click({ timeout: 15_000 });
+    await buyerChat.getByRole("radio", { name: "4 stars" }).click();
+    await buyerChat.getByLabel("Comment (optional)").fill("Smooth deal, item as described.");
+    await buyerChat.getByLabel("Post anonymously (your name won’t be shown)").check();
+    await buyerChat.getByRole("button", { name: "Post", exact: true }).click();
+    await expect(buyerChat.locator(".review-bar")).toContainText("You rated");
+    await expect(buyerChat.getByRole("button", { name: "Add follow-up" })).toBeVisible();
+
+    await sellerChat.getByRole("button", { name: "Leave a review" }).click({ timeout: 15_000 });
+    await expect(sellerChat.getByText("Post anonymously")).toHaveCount(0); // sellers can't be anonymous
+    await sellerChat.getByRole("radio", { name: "5 stars" }).click();
+    await sellerChat.getByRole("button", { name: "Post", exact: true }).click();
+    await expect(sellerChat.locator(".review-bar")).toContainText("You rated");
+    await expect(sellerChat.getByRole("button", { name: "Add follow-up" })).toHaveCount(0);
+
+    // The seller's rating shows on the listing card and detail, with the buyer hidden.
+    await buyerPage.reload();
+    await buyerPage.getByPlaceholder("Search gear...").fill(listingName);
+    const card = buyerPage.locator(".card", { hasText: listingName });
+    await expect(card.locator(".card-rating")).toHaveText("★ 4.0 (1)", { timeout: 15_000 });
+    await card.click();
+    await buyerPage.getByRole("button", { name: /^Sold by/ }).click();
+    const reviewItem = buyerPage.locator(".review", { hasText: "Smooth deal" });
+    await expect(reviewItem).toContainText("Anonymous buyer");
+    await expect(reviewItem).not.toContainText(buyer.username);
+
+    // The seller replies publicly from Settings.
+    await sellerPage.locator(".chat-window").getByRole("button", { name: "Close" }).click();
+    await sellerPage.locator("nav").getByRole("button", { name: "Settings" }).click();
+    const settings = sellerPage.getByRole("dialog", { name: "Account settings" });
+    await settings.getByRole("button", { name: /As seller/ }).click();
+    await settings.getByRole("button", { name: "Reply publicly" }).click();
+    await settings.getByLabel("Your reply").fill("Thanks for buying!");
+    await settings.getByRole("button", { name: "Post reply" }).click();
+    await expect(settings.locator(".review-reply")).toContainText("Thanks for buying!");
+    await expect(settings.getByLabel("Your reply")).toHaveCount(0); // form closes after posting
+    await expect(settings.getByRole("button", { name: "Reply publicly" })).toHaveCount(0); // only one reply
   } finally {
     await seller.client.from("listings").delete().eq("id", listing.id);
   }
