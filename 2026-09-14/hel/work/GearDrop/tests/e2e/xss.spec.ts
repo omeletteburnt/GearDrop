@@ -18,7 +18,7 @@ test("XSS payloads in listing fields render as inert text", async ({ page }) => 
   if (error || !data.session) throw error ?? new Error("signUp returned no session");
 
   const asOwner = createClient(URL, KEY, { global: { headers: { Authorization: `Bearer ${data.session.access_token}` } } });
-  await asOwner.from("profiles").upsert({ id: data.session.user.id, username: `rlstest_xss_${suffix}` });
+  await asOwner.from("profiles").upsert({ id: data.session.user.id, username: `xss_${suffix}` });
 
   const payloadName = `<script>window.__xssFired=true</script>XSS-TEST-${suffix}`;
   const payloadDescription = `<img src=x onerror="window.__xssFired=true">`;

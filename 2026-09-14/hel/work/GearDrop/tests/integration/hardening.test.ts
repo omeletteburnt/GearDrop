@@ -59,6 +59,12 @@ run("security hardening (live Supabase)", () => {
     expect((await anon.rpc("conversation_is_blocked", { conv: "00000000-0000-0000-0000-000000000000" })).error).not.toBeNull();
   });
 
+  it("database trigger helpers can't be called through the API", async () => {
+    for (const fn of ["conversation_set_seller", "message_before_insert", "pending_before_insert", "review_before_insert", "listing_guard", "nyx_feedback_limit"]) {
+      expect((await a.db.rpc(fn)).error, fn).not.toBeNull();
+    }
+  });
+
   it("chat media uploads must be encrypted bytes (no HTML or other types)", async () => {
     const conv = await b.db.from("conversations").insert({ listing_id: listingId }).select().single();
     expect(conv.error).toBeNull();
