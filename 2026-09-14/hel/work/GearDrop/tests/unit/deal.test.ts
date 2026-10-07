@@ -100,4 +100,17 @@ describe("isPayload", () => {
     expect(isPayload({ t: "payment", offerId: "o", method: "bank" })).toBe(false);
     expect(isPayload(null)).toBe(false);
   });
+  it("refuses media and QR types the browser could run as a page", () => {
+    for (const mime of ["text/html", "image/svg+xml", "application/xhtml+xml", "text/javascript", "application/pdf"]) {
+      expect(isPayload({ t: "media", kind: "image", path: "c/x", mime, size: 1 })).toBe(false);
+      expect(isPayload({ t: "media", kind: "video", path: "c/x", mime, size: 1 })).toBe(false);
+      expect(isPayload({ t: "payment", offerId: "o", method: "qr", path: "c/x", mime })).toBe(false);
+    }
+    expect(isPayload({ t: "media", kind: "video", path: "c/x", mime: "video/mp4", size: 1 })).toBe(true);
+    expect(isPayload({ t: "media", kind: "image", path: "c/x", mime: "video/mp4", size: 1 })).toBe(false);
+  });
+  it("only accepts PayNow numbers in the normalised format", () => {
+    expect(isPayload({ t: "payment", offerId: "o", method: "phone", phone: "+65 9123 4567" })).toBe(true);
+    expect(isPayload({ t: "payment", offerId: "o", method: "phone", phone: "click http://evil.example" })).toBe(false);
+  });
 });

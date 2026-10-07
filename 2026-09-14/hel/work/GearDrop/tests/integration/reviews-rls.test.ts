@@ -24,7 +24,7 @@ run("reviews (live Supabase)", () => {
 
   beforeAll(async () => {
     [seller, buyer, outsider] = await Promise.all([user("s"), user("b"), user("o")]);
-    const listing = await seller.db.from("listings").insert({ owner_id: seller.id, name: "VITEST-REVIEW-ITEM", category: "Mics", price: 10, condition: "Good", image: "http://x", description: "review test", seller: seller.name }).select().single();
+    const listing = await seller.db.from("listings").insert({ owner_id: seller.id, name: "VITEST-REVIEW-ITEM", category: "Mics", price: 10, condition: "Good", image: "https://images.unsplash.com/photo-1590602847861-f357a9332bbc", description: "review test", seller: seller.name }).select().single();
     if (listing.error) throw listing.error;
     listingId = listing.data.id;
     const conv = await buyer.db.from("conversations").insert({ listing_id: listingId }).select().single();

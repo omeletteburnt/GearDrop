@@ -10,15 +10,21 @@
 // SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY are provided
 // automatically. Keep "Verify JWT" ON: only signed-in users can ask.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { cleanCitations, DAILY_LIMIT, getListing, MAX_TEXT, sanitizeCatalog, sanitizeHistory, searchListings, systemPrompt, TOOLS, type Mode, type SearchArgs } from "./logic.ts";
+import { cleanCitations, DAILY_LIMIT, getListing, MAX_CATALOG, MAX_TEXT, mergeCatalog, sanitizeCatalog, sanitizeHistory, searchListings, systemPrompt, TOOLS, type Mode, type SearchArgs } from "./logic.ts";
 
 const env = (k: string) => Deno.env.get(k) ?? "";
-const cors = {
-  "Access-Control-Allow-Origin": "*",
+const MAX_BODY_BYTES = 300_000;
+
+// Browsers may only call Nyx from GearDrop itself (and local development).
+// Extra origins can be added with the ALLOWED_ORIGINS secret (comma-separated).
+const ALLOWED_ORIGINS = new Set(["https://gear-drop-4xza.vercel.app", "http://localhost:4173", "http://localhost:5173",
+  ...env("ALLOWED_ORIGINS").split(",").map(s => s.trim()).filter(Boolean)]);
+const corsFor = (origin: string | null) => ({
+  ...(origin && ALLOWED_ORIGINS.has(origin) ? { "Access-Control-Allow-Origin": origin } : {}),
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, "content-type": "application/json" } });
+  Vary: "Origin",
+});
 
 type ToolCall = { id: string; type: "function"; function: { name: string; arguments: string } };
 type Message =
@@ -35,6 +41,8 @@ function runTool(catalog: ReturnType<typeof sanitizeCatalog>, call: ToolCall): u
 }
 
 Deno.serve(async req => {
+  const cors = corsFor(req.headers.get("Origin"));
+  const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...cors, "content-type": "application/json" } });
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
@@ -43,17 +51,26 @@ Deno.serve(async req => {
   const { data: { user } } = await asUser.auth.getUser();
   if (!user) return json({ error: "Sign in to ask Nyx." }, 401);
 
-  const body = await req.json().catch(() => null);
+  if (Number(req.headers.get("content-length") ?? 0) > MAX_BODY_BYTES) return json({ error: "That request is too big." }, 413);
+  const raw = await req.text().catch(() => "");
+  if (raw.length > MAX_BODY_BYTES) return json({ error: "That request is too big." }, 413);
+  // deno-lint-ignore no-explicit-any
+  let body: any = null;
+  try { body = JSON.parse(raw); } catch { /* handled below */ }
   const question = typeof body?.question === "string" ? body.question.trim().slice(0, MAX_TEXT) : "";
   if (!question) return json({ error: "Type a question for Nyx." }, 400);
   const mode: Mode = body?.mode === "listing" || body?.mode === "compare" ? body.mode : "general";
-  const catalog = sanitizeCatalog(body?.catalog);
-  const focus = (Array.isArray(body?.focusIds) ? body.focusIds : []).slice(0, 2).map((id: unknown) => catalog.find(x => x.id === Number(id))).filter(Boolean);
+  const admin = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
+  const { data: dbListings, error: listingsError } = await admin.from("listings")
+    .select("id,name,category,price,condition,status,description,specs,missing,seller")
+    .order("created_at", { ascending: false }).limit(MAX_CATALOG);
+  if (listingsError) console.error("Listings load failed", listingsError);
+  const catalog = mergeCatalog(dbListings ?? [], body?.catalog);
+  const focus = (Array.isArray(body?.focusIds) ? body.focusIds as unknown[] : []).slice(0, 2).map((id: unknown) => catalog.find(x => x.id === Number(id))).filter(Boolean);
   const history = sanitizeHistory(body?.history);
 
   // Daily limit, counted server-side. The usage row is written before calling
   // the AI so parallel requests can't slip past the limit.
-  const admin = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { count, error: countError } = await admin.from("nyx_usage").select("id", { count: "exact", head: true }).eq("user_id", user.id).gte("asked_at", since);
   if (countError || count === null) {

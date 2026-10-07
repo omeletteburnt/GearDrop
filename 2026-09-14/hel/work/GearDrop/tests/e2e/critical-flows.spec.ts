@@ -96,7 +96,7 @@ test("sign-up -> create a listing -> delete it", async ({ page }) => {
   await page.getByRole("button", { name: "+ Sell gear" }).click();
   const sellDialog = page.locator('[role="dialog"]').first();
   const listingName = `E2E Test Listing ${suffix}`;
-  await sellDialog.locator('input[name="seller"]').fill(username);
+  await expect(sellDialog.getByText(`Listing as ${username}`)).toBeVisible(); // seller name comes from your account
   await sellDialog.locator('input[name="name"]').fill(listingName);
   await sellDialog.locator('select[name="category"]').selectOption("Mics");
   await sellDialog.locator('input[name="price"]').fill("25");

@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import { decryptBytes, decryptMessage, deriveConversationKey, encryptBytes, encryptMessage, generateKeyMaterial, unwrapPrivateKey, wrapPrivateKey, type WrappedKey } from "./crypto";
-import { isPayload, type Payload } from "./deal";
+import { isPayload, SAFE_IMAGE_TYPES, SAFE_VIDEO_TYPES, type Payload } from "./deal";
 
 export const MAX_MEDIA_BYTES = 25 * 1024 * 1024;
 const MAX_IMAGE_EDGE = 1600;
@@ -188,7 +188,7 @@ export type PreparedMedia = { kind: "image" | "video"; blob: Blob; mime: string 
 export async function prepareMedia(file: File): Promise<PreparedMedia> {
   if (file.size > MAX_MEDIA_BYTES) throw new Error("Files must be 25 MB or smaller.");
   if (file.type.startsWith("image/")) return { kind: "image", blob: await compressImage(file), mime: "image/jpeg" };
-  if (["video/mp4", "video/webm", "video/quicktime"].includes(file.type)) return { kind: "video", blob: file, mime: file.type };
+  if (SAFE_VIDEO_TYPES.includes(file.type)) return { kind: "video", blob: file, mime: file.type };
   throw new Error("Only photos and MP4 / WebM / MOV videos can be sent.");
 }
 
@@ -204,6 +204,9 @@ const mediaCache = new Map<string, Promise<string>>();
 // Returns a blob: URL for the decrypted file (cached per path).
 export function mediaUrl(convId: string, key: CryptoKey, senderId: string, path: string, mime: string): Promise<string> {
   if (!path.startsWith(convId + "/")) return Promise.reject(new Error("Invalid media path."));
+  // Second line of defence (isPayload already checks): never create a blob
+  // with a type the browser could render as a page.
+  if (![...SAFE_IMAGE_TYPES, ...SAFE_VIDEO_TYPES].includes(mime)) return Promise.reject(new Error("Unsupported file type."));
   let url = mediaCache.get(path);
   if (!url) {
     url = (async () => {

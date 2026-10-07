@@ -73,6 +73,14 @@ export function normalisePayNowPhone(input: string): string | null {
   return `+65 ${digits.slice(0, 4)} ${digits.slice(4)}`;
 }
 
+// Media types a decrypted file may be shown as. The type comes from the
+// sender, so anything else (e.g. text/html, image/svg+xml) is refused: a blob
+// with a scriptable type could run as a page on GearDrop's origin.
+export const SAFE_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+export const SAFE_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
+const safeMime = (kind: unknown, mime: unknown) =>
+  typeof mime === "string" && (kind === "video" ? SAFE_VIDEO_TYPES : SAFE_IMAGE_TYPES).includes(mime);
+
 // Defensive shape check for decrypted payloads: a message that decrypts fine
 // but has an unexpected shape (e.g. from a newer/older client) is dropped.
 export function isPayload(x: unknown): x is Payload {
@@ -81,10 +89,10 @@ export function isPayload(x: unknown): x is Payload {
   const str = (k: string) => typeof p[k] === "string";
   switch (p.t) {
     case "text": return str("body");
-    case "media": return (p.kind === "image" || p.kind === "video") && str("path") && str("mime") && typeof p.size === "number";
+    case "media": return (p.kind === "image" || p.kind === "video") && str("path") && safeMime(p.kind, p.mime) && typeof p.size === "number";
     case "offer": return str("offerId") && typeof p.amount === "number";
     case "accept": case "confirm": return str("offerId");
-    case "payment": return str("offerId") && (p.method === "phone" ? str("phone") : p.method === "qr" && str("path") && str("mime"));
+    case "payment": return str("offerId") && (p.method === "phone" ? str("phone") && /^\+65 [89]\d{3} \d{4}$/.test(p.phone as string) : p.method === "qr" && str("path") && safeMime("image", p.mime));
     default: return false;
   }
 }

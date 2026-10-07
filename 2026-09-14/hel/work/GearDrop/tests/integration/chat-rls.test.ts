@@ -25,7 +25,7 @@ run("chat RLS policies (live Supabase)", () => {
 
   beforeAll(async () => {
     [seller, buyer, outsider] = await Promise.all([user("s"), user("b"), user("o")]);
-    const { data, error } = await seller.db.from("listings").insert({ owner_id: seller.id, name: "VITEST-CHAT-ITEM", category: "Mics", price: 10, condition: "Good", image: "http://x", description: "chat rls test", seller: "chat_s" }).select().single();
+    const { data, error } = await seller.db.from("listings").insert({ owner_id: seller.id, name: "VITEST-CHAT-ITEM", category: "Mics", price: 10, condition: "Good", image: "https://images.unsplash.com/photo-1590602847861-f357a9332bbc", description: "chat rls test", seller: "chat_s" }).select().single();
     if (error) throw error;
     listingId = data.id;
   }, 30_000);

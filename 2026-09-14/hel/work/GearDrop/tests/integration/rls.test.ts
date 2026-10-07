@@ -31,7 +31,7 @@ run("RLS policies (live Supabase)", () => {
     userAId = data.session.user.id;
     userAToken = data.session.access_token;
     const asA = createClient(URL, KEY, { global: { headers: { Authorization: `Bearer ${userAToken}` } } });
-    await asA.from("profiles").upsert({ id: userAId, username: `rlstest_vitest_a_${suffix}` });
+    await asA.from("profiles").upsert({ id: userAId, username: `rls_a_${suffix}` });
   });
 
   afterAll(async () => {
@@ -52,7 +52,7 @@ run("RLS policies (live Supabase)", () => {
   it("rejects anon INSERT on listings", async () => {
     const { error } = await anon.from("listings").insert({
       name: "should-not-insert", category: "Mics", price: 1, condition: "Good",
-      image: "http://x", description: "x", seller: "x",
+      image: "https://images.unsplash.com/photo-1590602847861-f357a9332bbc", description: "x", seller: "x",
     });
     expect(error).not.toBeNull();
     expect(error!.code).toBe("42501");
@@ -62,7 +62,7 @@ run("RLS policies (live Supabase)", () => {
     const asA = createClient(URL, KEY, { global: { headers: { Authorization: `Bearer ${userAToken}` } } });
     const { data, error } = await asA.from("listings").insert({
       owner_id: userAId, name: "VITEST-RLS-ITEM", category: "Mics", price: 1,
-      condition: "Good", image: "http://x", description: "vitest rls test", seller: "rlstest_vitest_a",
+      condition: "Good", image: "https://images.unsplash.com/photo-1590602847861-f357a9332bbc", description: "vitest rls test", seller: "rlstest_vitest_a",
     }).select().single();
     expect(error).toBeNull();
     listingId = data!.id;
@@ -79,7 +79,7 @@ run("RLS policies (live Supabase)", () => {
     const { data: signupB, error: signupErrB } = await setupB.auth.signUp({ email: emailB, password });
     if (signupErrB || !signupB.session) throw signupErrB ?? new Error("signUp B returned no session");
     const asB = createClient(URL, KEY, { global: { headers: { Authorization: `Bearer ${signupB.session.access_token}` } } });
-    await asB.from("profiles").upsert({ id: signupB.session.user.id, username: `rlstest_vitest_b_${suffix}` });
+    await asB.from("profiles").upsert({ id: signupB.session.user.id, username: `rls_b_${suffix}` });
     const crossDelete = await asB.from("listings").delete({ count: "exact" }).eq("id", listingId);
     expect(crossDelete.count).toBe(0);
 
