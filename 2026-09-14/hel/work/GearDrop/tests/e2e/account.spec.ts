@@ -1,11 +1,12 @@
 import { expect, test } from "@playwright/test";
+import { menu, logOut, expectSignedIn } from "./menu";
 
 const suffix = Date.now();
 
 test("sign up without an email, sign back in with the username, and see 'No email added' in Settings", async ({ page }) => {
   const username = `noemail_${suffix}`.slice(0, 24);
   await page.goto("/");
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await menu(page, "Sign in / Sign up");
   const auth = page.locator('[role="dialog"]').first();
   await auth.getByRole("button", { name: "Need an account? Sign up" }).click();
   await expect(auth.getByText("You can add one later in Settings.")).toBeVisible();
@@ -15,7 +16,7 @@ test("sign up without an email, sign back in with the username, and see 'No emai
   await expect(auth).toHaveCount(0, { timeout: 15_000 });
 
   // Settings shows the username and that no email has been added.
-  await page.locator("nav").getByRole("button", { name: "Settings" }).click();
+  await menu(page, "Settings");
   const settings = page.getByRole("dialog", { name: "Account settings" });
   await expect(settings.locator(".settings-list")).toContainText(username);
   await expect(settings.getByText("No email added")).toBeVisible();
@@ -27,21 +28,21 @@ test("sign up without an email, sign back in with the username, and see 'No emai
   await settings.getByRole("button", { name: "Close" }).click();
 
   // Log out and back in with just the username.
-  await page.locator("nav").getByRole("button", { name: "Log out" }).click();
-  await page.locator("nav").getByRole("button", { name: "Sign in" }).click();
+  await logOut(page);
+  await menu(page, "Sign in / Sign up");
   const signIn = page.locator('[role="dialog"]').first();
   await signIn.locator('input[name="identifier"]').fill(username);
   await signIn.locator('input[name="password"]').fill("TempPass123!");
   await signIn.getByRole("button", { name: "Sign in" }).click();
   await expect(signIn).toHaveCount(0, { timeout: 15_000 });
-  await expect(page.locator("nav").getByRole("button", { name: "Settings" })).toBeVisible();
+  await expectSignedIn(page);
 });
 
 test("signing up with a username that's already taken says so", async ({ page }) => {
   const username = `taken_${suffix}`.slice(0, 24);
   for (const attempt of [1, 2]) {
     await page.goto("/");
-    await page.getByRole("button", { name: "Sign in" }).click();
+    await menu(page, "Sign in / Sign up");
     const auth = page.locator('[role="dialog"]').first();
     await auth.getByRole("button", { name: "Need an account? Sign up" }).click();
     await auth.locator('input[name="identifier"]').fill(username);
@@ -49,7 +50,7 @@ test("signing up with a username that's already taken says so", async ({ page })
     await auth.getByRole("button", { name: "Create account" }).click();
     if (attempt === 1) {
       await expect(auth).toHaveCount(0, { timeout: 15_000 });
-      await page.locator("nav").getByRole("button", { name: "Log out" }).click();
+      await logOut(page);
     } else {
       await expect(auth.getByRole("alert")).toHaveText("That username is already taken.");
     }
@@ -59,7 +60,7 @@ test("signing up with a username that's already taken says so", async ({ page })
 test("Remove email asks for confirmation and explains the link step", async ({ page }) => {
   const username = `rmemail_${suffix}`.slice(0, 24);
   await page.goto("/");
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await menu(page, "Sign in / Sign up");
   const auth = page.locator('[role="dialog"]').first();
   await auth.getByRole("button", { name: "Need an account? Sign up" }).click();
   await auth.locator('input[name="identifier"]').fill(username);
@@ -68,7 +69,7 @@ test("Remove email asks for confirmation and explains the link step", async ({ p
   await auth.getByRole("button", { name: "Create account" }).click();
   await expect(auth).toHaveCount(0, { timeout: 15_000 });
 
-  await page.locator("nav").getByRole("button", { name: "Settings" }).click();
+  await menu(page, "Settings");
   const settings = page.getByRole("dialog", { name: "Account settings" });
   await expect(settings.locator(".settings-list")).toContainText(`${username}@example.com`);
   await settings.getByRole("button", { name: "Remove email" }).click();

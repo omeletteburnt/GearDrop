@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
+import { menu } from "./menu";
 
 // UI tests with the AI mocked (fast, free, deterministic). The real AI
 // accuracy checks live in tests/integration/nyx-live.test.ts.
@@ -7,7 +8,7 @@ const suffix = Date.now();
 
 async function signUp(page: Page, tag: string) {
   const username = `nyx_${tag}_${suffix}`.slice(0, 24);
-  await page.locator("nav").getByRole("button", { name: "Sign in" }).click();
+  await menu(page, "Sign in / Sign up");
   const auth = page.locator('[role="dialog"]').first();
   await auth.getByRole("button", { name: "Need an account? Sign up" }).click();
   await auth.locator('input[name="identifier"]').fill(username);

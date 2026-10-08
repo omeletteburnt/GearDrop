@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { menu } from "./menu";
 
 // Automated accessibility audit (contrast, ARIA, focus, landmarks) against
 // the redesigned home page and the detail sheet, in both themes. This is a
@@ -42,7 +43,7 @@ test.describe("accessibility (axe)", () => {
 
   test("auth dialog — light theme", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "Sign in" }).click();
+    await menu(page, "Sign in / Sign up");
     await page.locator('[role="dialog"]').waitFor();
     await page.waitForTimeout(350); // let the modal-in/overlay-in fade transitions settle before sampling computed colors
     const results = await new AxeBuilder({ page }).analyze();

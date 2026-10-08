@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { expect, test, type Browser, type Page } from "@playwright/test";
+import { menu, expectSignedIn } from "./menu";
 
 test("demo listings can't be messaged", async ({ page }) => {
   await page.goto("/");
@@ -30,12 +31,12 @@ async function makeUser(tag: string) {
 async function signedInPage(browser: Browser, email: string): Promise<Page> {
   const page = await (await browser.newContext()).newPage();
   await page.goto("/");
-  await page.locator("nav").getByRole("button", { name: "Sign in" }).click();
+  await menu(page, "Sign in / Sign up");
   const dialog = page.locator('[role="dialog"]');
   await dialog.locator('input[name="identifier"]').fill(email);
   await dialog.locator('input[name="password"]').fill(password);
   await dialog.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.locator("nav").getByRole("button", { name: /^Messages/ })).toBeVisible({ timeout: 20_000 });
+  await expectSignedIn(page, 20_000);
   return page;
 }
 
@@ -59,13 +60,13 @@ live("messages to someone without a chat key are held, then delivered after they
 
     // Seller signs in (creating their key) and is told a message is on the way.
     const sellerPage = await signedInPage(browser, seller.email);
-    await sellerPage.locator("nav").getByRole("button", { name: /^Messages/ }).click();
+    await menu(sellerPage, /^Messages/);
     await sellerPage.locator(".inbox-list button", { hasText: listingName }).click();
     await expect(sellerPage.locator(".chat-window").getByText("before your secure chat was set up")).toBeVisible({ timeout: 15_000 });
 
     // Next time the buyer opens the chat, it is re-encrypted and delivered.
     await buyerChat.getByRole("button", { name: "Close" }).click();
-    await buyerPage.locator("nav").getByRole("button", { name: /^Messages/ }).click();
+    await menu(buyerPage, /^Messages/);
     await buyerPage.locator(".inbox-list button", { hasText: listingName }).click();
     await expect(buyerPage.locator(".chat-window .bubble.mine", { hasText: "Held hello" })).toBeVisible({ timeout: 15_000 });
     await expect(sellerPage.locator(".chat-window .bubble", { hasText: "Held hello" })).toBeVisible({ timeout: 15_000 });
@@ -96,8 +97,8 @@ live("buyer and seller chat, negotiate, confirm, and share PayNow details", asyn
     await expect(buyerChat.locator(".bubble.mine", { hasText: "Hi, is this still available?" })).toBeVisible();
 
     // Seller sees the unread badge, opens the chat, and sends an offer.
-    await expect(sellerPage.getByRole("button", { name: "Messages, 1 unread" })).toBeVisible({ timeout: 15_000 });
-    await sellerPage.getByRole("button", { name: "Messages, 1 unread" }).click();
+    await expect(sellerPage.getByRole("button", { name: "Menu, 1 unread messages" })).toBeVisible({ timeout: 15_000 });
+    await menu(sellerPage, "Messages, 1 unread");
     await sellerPage.locator(".inbox-list button", { hasText: listingName }).click();
     const sellerChat = sellerPage.locator(".chat-window");
     await expect(sellerChat.getByText("Hi, is this still available?")).toBeVisible();
@@ -168,7 +169,7 @@ live("buyer and seller chat, negotiate, confirm, and share PayNow details", asyn
 
     // The seller replies publicly from Settings.
     await sellerPage.locator(".chat-window").getByRole("button", { name: "Close" }).click();
-    await sellerPage.locator("nav").getByRole("button", { name: "Settings" }).click();
+    await menu(sellerPage, "Settings");
     const settings = sellerPage.getByRole("dialog", { name: "Account settings" });
     await settings.getByRole("button", { name: /As seller/ }).click();
     await settings.getByRole("button", { name: "Reply publicly" }).click();

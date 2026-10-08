@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { menu, logOut, expectSignedIn } from "./menu";
 
 const suffix = Date.now();
 
@@ -32,7 +33,7 @@ test("browse -> detail -> compare two models in the same category", async ({ pag
 
 test("sign-up shows clear validation errors instead of silently doing nothing", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await menu(page, "Sign in / Sign up");
   const authDialog = page.locator('[role="dialog"]').first();
   await authDialog.getByRole("button", { name: "Need an account? Sign up" }).click();
 
@@ -62,7 +63,7 @@ test("stale error clears even when the field changes with zero JS events", async
   // via the native setter and dispatch NOTHING — no input, change, or
   // animation event whatsoever — and confirm the stale error still clears.
   await page.goto("/");
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await menu(page, "Sign in / Sign up");
   const authDialog = page.locator('[role="dialog"]').first();
   await authDialog.getByRole("button", { name: "Need an account? Sign up" }).click();
   await authDialog.locator('input[name="identifier"]').fill(`autofilltest_${suffix}`);
@@ -84,7 +85,7 @@ test("sign-up -> create a listing -> delete it", async ({ page }) => {
   const username = `e2e_flow_${suffix}`;
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await menu(page, "Sign in / Sign up");
   const authDialog = page.locator('[role="dialog"]').first();
   await authDialog.getByRole("button", { name: "Need an account? Sign up" }).click();
   await authDialog.locator('input[name="identifier"]').fill(username);
@@ -123,7 +124,7 @@ test("sign up with a real email, then sign back in using that email", async ({ p
   const email = `${username}@example.com`;
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await menu(page, "Sign in / Sign up");
   const authDialog = page.locator('[role="dialog"]').first();
   await authDialog.getByRole("button", { name: "Need an account? Sign up" }).click();
   await authDialog.locator('input[name="identifier"]').fill(username);
@@ -131,16 +132,16 @@ test("sign up with a real email, then sign back in using that email", async ({ p
   await authDialog.locator('input[name="password"]').fill("TempPass123!");
   await authDialog.getByRole("button", { name: "Create account" }).click();
   await expect(authDialog).toHaveCount(0, { timeout: 10000 });
-  await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
+  await expectSignedIn(page);
 
-  await page.getByRole("button", { name: "Log out" }).click();
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await logOut(page);
+  await menu(page, "Sign in / Sign up");
   const signInDialog = page.locator('[role="dialog"]').first();
   await signInDialog.locator('input[name="identifier"]').fill(email);
   await signInDialog.locator('input[name="password"]').fill("TempPass123!");
   await signInDialog.getByRole("button", { name: "Sign in" }).click();
   await expect(signInDialog).toHaveCount(0, { timeout: 10000 });
-  await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
+  await expectSignedIn(page);
 });
 
 // This requires the public.email_for_username() Postgres function (see
@@ -153,7 +154,7 @@ test("sign up, then sign back in using the username instead of email", async ({ 
   const email = `${username}@example.com`;
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await menu(page, "Sign in / Sign up");
   const authDialog = page.locator('[role="dialog"]').first();
   await authDialog.getByRole("button", { name: "Need an account? Sign up" }).click();
   await authDialog.locator('input[name="identifier"]').fill(username);
@@ -162,12 +163,12 @@ test("sign up, then sign back in using the username instead of email", async ({ 
   await authDialog.getByRole("button", { name: "Create account" }).click();
   await expect(authDialog).toHaveCount(0, { timeout: 10000 });
 
-  await page.getByRole("button", { name: "Log out" }).click();
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await logOut(page);
+  await menu(page, "Sign in / Sign up");
   const signInDialog = page.locator('[role="dialog"]').first();
   await signInDialog.locator('input[name="identifier"]').fill(username);
   await signInDialog.locator('input[name="password"]').fill("TempPass123!");
   await signInDialog.getByRole("button", { name: "Sign in" }).click();
   await expect(signInDialog).toHaveCount(0, { timeout: 10000 });
-  await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
+  await expectSignedIn(page);
 });
