@@ -135,6 +135,9 @@ test("sign up with a real email, then sign back in using that email", async ({ p
   await expectSignedIn(page);
 
   await logOut(page);
+  const toast = page.locator(".toast", { hasText: "You have been logged out." });
+  await expect(toast).toBeVisible();
+  await expect(toast).toHaveCount(0, { timeout: 6000 }); // hides itself, no refresh needed
   await menu(page, "Sign in / Sign up");
   const signInDialog = page.locator('[role="dialog"]').first();
   await signInDialog.locator('input[name="identifier"]').fill(email);

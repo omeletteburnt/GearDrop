@@ -36,7 +36,7 @@ const photos: Record<Category,string> = {
 function App() {
   const [items,setItems]=useState(starterListings); const [category,setCategory]=useState<Category|"All">("All");
   const [search,setSearch]=useState(""); const [nyxDraft,setNyxDraft]=useState(""); const [nyxHi,setNyxHi]=useState(false); useEffect(()=>{if(!nyxHi)return;const t=setTimeout(()=>setNyxHi(false),1200);return()=>clearTimeout(t);},[nyxHi]);
-  const [selected,setSelected]=useState<Listing|null>(null); const [selling,setSelling]=useState(false); const [toast,setToast]=useState(""); const [session,setSession]=useState<Session|null>(null); const [admin,setAdmin]=useState(false); const [auth,setAuth]=useState(false); const [compare,setCompare]=useState<Listing[]>([]); const [deleteCandidate,setDeleteCandidate]=useState<Listing|null>(null);
+  const [selected,setSelected]=useState<Listing|null>(null); const [selling,setSelling]=useState(false); const [toast,setToast]=useState(""); useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(""),4000);return()=>clearTimeout(t);},[toast]); /* every message hides itself after 4 s */ const [session,setSession]=useState<Session|null>(null); const [admin,setAdmin]=useState(false); const [auth,setAuth]=useState(false); const [compare,setCompare]=useState<Listing[]>([]); const [deleteCandidate,setDeleteCandidate]=useState<Listing|null>(null);
   // Deliver any "waiting to deliver" messages whose recipient has since signed in.
   useEffect(()=>{if(session)deliverHeld(session.user.id).catch(()=>undefined);},[session?.user.id]);
   const [inbox,setInbox]=useState(false); const [settings,setSettings]=useState(false);
