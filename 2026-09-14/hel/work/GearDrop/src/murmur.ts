@@ -14,7 +14,14 @@ export function murmurWords(question: string, max = 8): string[] {
     seen.add(key); out.push(w);
     if (out.length >= max) break;
   }
-  return out.length ? out : ["hmm", "let's see"];
+  return out;
+}
+
+const GENERIC = ["hmm", "checking listings", "comparing specs", "let's see", "looking at prices", "okay"];
+
+// What Nyx murmurs at tick `n`: each question word once, then generic lines on repeat.
+export function murmurAt(words: string[], n: number): string {
+  return n < words.length ? words[n] : GENERIC[(n - words.length) % GENERIC.length];
 }
 
 export function countWords(text: string) { return text.split(/\s+/).filter(Boolean).length; }

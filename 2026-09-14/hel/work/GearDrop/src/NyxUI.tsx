@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "rea
 import type { Listing } from "./data";
 import type { Session } from "./supabase";
 import { NyxFace, type NyxMood } from "./NyxFace";
-import { countWords, murmurWords, revealWords } from "./murmur";
+import { countWords, murmurAt, murmurWords, revealWords } from "./murmur";
 import { askNyx, chatFromDoc, downloadChat, NYX_DAILY_LIMIT, nyxRemaining, sendNyxFeedback, splitAnswer, type NyxMode, type NyxTurn } from "./nyx";
 
 // **bold** inside a line, rendered as React text (never as HTML).
@@ -36,9 +36,8 @@ export function NyxAnswer({ text, items, onOpen }: { text: string; items: Listin
 function Murmur({ question }: { question: string }) {
   const [words] = useState(() => murmurWords(question));
   const [at, setAt] = useState(0);
-  useEffect(() => { const t = setInterval(() => setAt(a => a + 1), 520); return () => clearInterval(t); }, []);
-  const shown = [0, 1, 2].map(k => words[(at + k) % words.length]).slice(0, Math.min(3, words.length));
-  return <span className="nyx-murmur" aria-hidden="true" key={at}>{shown.join("… ")}…</span>;
+  useEffect(() => { const t = setInterval(() => setAt(a => a + 1), 900); return () => clearInterval(t); }, []);
+  return <span className="nyx-murmur" aria-hidden="true" key={at}>{murmurAt(words, at)}…</span>;
 }
 
 const reducedMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
