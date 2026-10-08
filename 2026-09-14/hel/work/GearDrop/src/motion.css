@@ -1,0 +1,59 @@
+/* Site-wide motion: hero entrance + parallax, click feedback, ambient orbs.
+   Everything here is off when the visitor prefers reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  /* hero entrance: text staggers in, then the gear photos drop into place */
+  .hero>div:not([class])>*{animation:rise-in .7s cubic-bezier(.2,.7,.2,1) both}
+  .hero>div:not([class])>:nth-child(2){animation-delay:.1s}
+  .hero>div:not([class])>:nth-child(3){animation-delay:.2s}
+  .hero>div:not([class])>:nth-child(4){animation-delay:.3s}
+  .hero-gallery figure{animation:drop-in .7s cubic-bezier(.2,.7,.2,1) both}
+  .hero-gallery figure:nth-child(1){animation-delay:.35s}
+  .hero-gallery figure:nth-child(2){animation-delay:.47s}
+  .hero-gallery figure:nth-child(3){animation-delay:.59s}
+
+  /* gentle parallax while the hero scrolls away */
+  @supports (animation-timeline: scroll()) {
+    .hero>.hero-strips{animation:parallax-slow linear both;animation-timeline:scroll(root);animation-range:0 600px}
+    .hero>.hero-gallery{animation:parallax-fast linear both;animation-timeline:scroll(root);animation-range:0 600px}
+  }
+
+  /* gear photos straighten and lift on hover */
+  .hero-gallery figure{transition:transform .3s var(--ease),box-shadow .3s var(--ease)}
+  .hero-gallery figure:nth-child(n):hover{transform:rotate(0) translateY(-6px);z-index:4;box-shadow:var(--shadow-2),0 12px 30px rgba(109,60,199,.35)}
+
+  /* buttons press in */
+  button:not(:disabled),.cta{transition-property:background,color,border-color,box-shadow,transform,scale;transition-duration:var(--dur-1);transition-timing-function:var(--ease)}
+  button:not(:disabled):active,.cta:active{scale:.96}
+
+  /* the chosen filter pill fills in instead of snapping */
+  .filters .active{animation:pill-in .28s var(--ease)}
+
+  /* ambient orbs drift behind dark sections */
+  .orbs i{animation:orb-drift 26s ease-in-out infinite alternate}
+  .orbs i:nth-child(2){animation-duration:32s;animation-delay:-9s}
+  .orbs i:nth-child(3){animation-duration:22s;animation-delay:-15s}
+}
+
+/* listing cards: a soft purple glow joins the existing lift */
+.card:hover,.card:focus-visible{box-shadow:var(--shadow-2),0 0 0 1px rgba(185,138,255,.35),0 12px 30px rgba(109,60,199,.22)}
+
+/* click ripple (added by ripple.ts) */
+.ripple-host{position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none}
+.ripple{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:rgba(185,138,255,.45);animation:ripple .55s ease-out forwards}
+
+/* orbs layer */
+.hero,.nyx,.safety-hero{position:relative;isolation:isolate;overflow:hidden}
+.orbs{position:absolute;inset:0;z-index:1;pointer-events:none}
+.nyx>:not(.orbs),.safety-hero>:not(.orbs){position:relative;z-index:2}
+.orbs i{position:absolute;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(185,138,255,.22),transparent 65%);filter:blur(20px)}
+.orbs i:nth-child(1){top:-80px;left:8%}
+.orbs i:nth-child(2){bottom:-120px;right:12%;width:420px;height:420px;background:radial-gradient(circle,rgba(109,60,199,.25),transparent 65%)}
+.orbs i:nth-child(3){top:35%;left:45%;width:260px;height:260px}
+
+@keyframes rise-in{from{opacity:0;translate:0 18px}to{opacity:1;translate:0 0}}
+@keyframes drop-in{from{opacity:0;translate:0 -24px}to{opacity:1;translate:0 0}}
+@keyframes parallax-slow{to{translate:0 90px}}
+@keyframes parallax-fast{to{translate:0 -50px}}
+@keyframes pill-in{from{scale:.94}to{scale:1}}
+@keyframes ripple{to{scale:22;opacity:0}}
+@keyframes orb-drift{0%{translate:0 0}50%{translate:60px 40px}100%{translate:-40px 70px}}
