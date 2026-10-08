@@ -28,10 +28,11 @@ export function stackState(top: number, height: number, nextTop: number | null, 
 // the section really starts in the page (sum of the sections above it).
 export function scrollToSection(target: Element | null) {
   const el = target?.closest<HTMLElement>("main > .stack");
+  if (el && el === el.parentElement!.querySelector(":scope > .stack")) { scrollTo({ top: 0, behavior: "smooth" }); return; } // first section = page top
   if (!el || !matchMedia(MEDIA).matches) { target?.scrollIntoView({ behavior: "smooth" }); return; }
   let top = el.parentElement!.getBoundingClientRect().top + scrollY;
   for (let s = el.previousElementSibling; s; s = s.previousElementSibling) top += (s as HTMLElement).offsetHeight;
-  scrollTo({ top: el === el.parentElement!.firstElementChild ? 0 : top - NAV, behavior: "smooth" });
+  scrollTo({ top: top - NAV, behavior: "smooth" });
 }
 
 type Css = Partial<Record<"top" | "zIndex" | "transform" | "scale" | "filter" | "visibility", string>>;
