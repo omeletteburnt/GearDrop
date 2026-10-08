@@ -45,7 +45,7 @@
 .hero,.nyx,.safety-hero{position:relative;isolation:isolate;overflow:hidden}
 .orbs{position:absolute;inset:0;z-index:1;pointer-events:none}
 .nyx>:not(.orbs):not(.stack-dim),.safety-hero>:not(.orbs){position:relative;z-index:2}
-.orbs i{position:absolute;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(185,138,255,.22),transparent 65%);filter:blur(20px)}
+.orbs i{position:absolute;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(185,138,255,.22),transparent 65%)}
 .orbs i:nth-child(1){top:-80px;left:8%}
 .orbs i:nth-child(2){bottom:-120px;right:12%;width:420px;height:420px;background:radial-gradient(circle,rgba(109,60,199,.25),transparent 65%)}
 .orbs i:nth-child(3){top:35%;left:45%;width:260px;height:260px}
@@ -60,10 +60,10 @@
 
 /* stacking homepage sections (driven by stack.ts) — tablets/desktops only */
 @media (min-width: 700px) and (prefers-reduced-motion: no-preference) {
-  main>.stack{position:sticky;top:var(--stick,76px);animation:none;transform-origin:50% 100%;transform:perspective(1400px) rotateX(var(--tilt,0deg));scale:calc(1 - var(--cover,0) * .05)}
+  main>.stack{position:sticky;top:76px;animation:none;transform-origin:50% 100%}
   main>.stack:not(:first-of-type){border-radius:24px 24px 0 0;box-shadow:0 -18px 40px rgba(8,6,16,.28)}
   .categories-section.stack,.browse.stack{background:var(--bg)}
-  .stack-dim{position:absolute;inset:0;z-index:50;pointer-events:none;border-radius:inherit;background:#07050d;opacity:calc(var(--cover,0) * .45)}
+  .stack-dim{position:absolute;inset:0;z-index:50;pointer-events:none;border-radius:inherit;background:#07050d;opacity:0}
 }
 .stack-dim{display:none}
 @media (min-width: 700px) and (prefers-reduced-motion: no-preference){.stack-dim{display:block}}
