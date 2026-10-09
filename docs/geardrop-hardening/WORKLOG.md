@@ -636,3 +636,25 @@ Kept a `isLocalError` ref to distinguish "local validation message that should b
 **Self-review (OWASP-frame):** `.env.local` holds only the publishable key and is gitignored (`*.env.*`); the script refuses secret/service_role keys. `site_stats()` still returns aggregates only.
 
 **Next action:** user reviews the diff; commit on go-ahead (no push, push deploys). Vercel Web Analytics must be enabled in the Vercel dashboard for visitor numbers.
+
+---
+
+## 2026-10-09 — Website security check skill + admin-only security_report()
+
+**Request:** a "Website Security Checking" skill: irregular traffic, trackers, GitHub repo problems, and unknown people accessing/changing the site; plus a final check of what to remove from GitHub.
+
+**What changed:**
+- `supabase-security-setup.sql` (new, run by user): `private.security_report(days)` SECURITY DEFINER + public SECURITY INVOKER wrapper, **admin-only** (`private.is_admin()`, revoked from anon). Returns admins, auth-log actions, sign-ins per user, account changes, hourly activity (sign-ups, sign-ins, listings, messages, Nyx, deals), public tables without RLS, and non-trigger SECURITY DEFINER functions in `public`.
+- Personal skill `~/.claude/skills/website-security-checking/` (not in the repo): Node script, no new dependencies. Checks trackers/cookies/storage/security headers on the live site with Playwright; live CSP vs `vercel.json` on GitHub; secrets in tracked files and full git history (values masked); deleted secret files still in history; `.gitignore`; `pnpm audit`; commits/pushes by untrusted authors (git + GitHub public events); **live site vs a fresh build of `origin/main`** (temp worktree, byte-for-byte asset hashes); admin count and admin sign-ins. Sends a PDF from a temp folder. Admin credentials (`admin.env`, username + password) and the trusted list (`trusted.json`) stay in the skill folder.
+
+**Findings:**
+- `TheKey.env` (uploaded 2026-09-14 in cbb91c4, deleted 2026-09-16 in 65b5a27) is still in the public history and contains an `API_KEY`. User to regenerate it at its provider.
+- The user's personal email appears in this WORKLOG (lines 444, 489); user chose to leave it.
+- Hosted Supabase leaves `auth.audit_log_entries.ip_address` empty (verified), so IP/location checks aren't possible from the database; the report lists admin sign-ins by time and points to Authentication → Logs. "Write audit logs to the database" was off; the user turned it on.
+- Live site is byte-for-byte a build of `origin/main` (CRLF in a Windows checkout's `index.html` is normalised before comparing).
+
+**Tests run and results:** full skill run against live Supabase/GitHub/Vercel: 2 red (TheKey.env), 2 amber (test-run sign-up spikes, email in WORKLOG), 14 green, 9 info; PDF checked (4 pages, nothing cut off). False alarms found and fixed during testing: CRLF `index.html` mismatch, trigger functions flagged as API-callable, empty IP treated as untrusted. Temp worktree cleanup verified (node_modules junction removed before the worktree; real `node_modules` intact).
+
+**Self-review (OWASP-frame):** `security_report()` exposes usernames/admin email, so it's admin-only and not callable by anon. The skill never prints `admin.env`, masks key values, and sends no IPs to outside services. No service_role/secret key used.
+
+**Next action:** user regenerates the leaked TheKey.env key; user tests `/website-security-checking` in a new session.
