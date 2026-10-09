@@ -582,3 +582,57 @@ Kept a `isLocalError` ref to distinguish "local validation message that should b
 **Self-review (OWASP-frame):** Pure visual change, no logic/security surface touched.
 
 **Next action:** Report to user; awaiting commit/push direction (push auto-deploys, as established).
+
+---
+
+## 2026-10-09 — Site-stats dashboard skill (Claude Code) + Vercel Web Analytics
+
+**Request:** a "skill" that produces a visual overview of the site: visitors, listings created, listings sold, etc. User chose a Claude Code skill (runs on their PC, which can reach Supabase; the Cowork sandbox can't) and Vercel Web Analytics for visitors.
+
+**What changed:**
+- `supabase-stats-setup.sql` (new, not yet run): `private.site_stats()` SECURITY DEFINER + public SECURITY INVOKER wrapper (same pattern as `supabase-advisor-fixes.sql`). Returns one jsonb of aggregates only (users, listings by status/category, avg price, deal funnel started → both confirmed → completed + value, reviews + star distribution, chat counts, Nyx usage/feedback, 30-day daily series in SGT). Callable by anon on purpose: no PII/ids/text, so the skill needs no password or service_role key. Admin-only variant described at the bottom of the file.
+- `tools/claude-skills/site-stats/` (new): `SKILL.md` + zero-dependency `scripts/site-stats.mjs` that calls the RPC with the anon/publishable key from the app's `.env(.local)`, writes a self-contained HTML dashboard (inline SVG charts, light/dark) + JSON snapshot to `reports/site-stats/`, and prints a text summary. Refuses service_role/secret keys (including legacy JWTs by decoding the role). Lives in `tools/` because `.claude/` isn't writable from Cowork; user copies it to `.claude/skills/site-stats/`.
+- `.gitignore`: `reports/` (generated dashboards).
+- `index.html`: `<script defer src="/_vercel/insights/script.js">`. Same-origin, so the existing CSP allows it; the inline `window.va` stub from Vercel's docs is intentionally omitted (CSP blocks inline scripts; only needed for custom events). Web Analytics must also be enabled in the Vercel dashboard.
+
+**Finding:** nothing in the app ever sets a listing to `Sold` (no mark-as-sold UI), so the dashboard uses completed deals (`transactions.payment_sent_at`) as the sales number and says so.
+
+**Tests run and results:** script tested against mock JSON (full + empty state), a local mock server (404/PGRST202 → "run the SQL" message; legacy JWT vs `sb_publishable_` header handling), bad `--visitors`, missing env, unreachable host, service_role JWT refusal. Dashboard visually checked via screenshot. SQL reviewed by hand (no Postgres in the sandbox) - **not yet executed**. `pnpm build`/`pnpm test` could not run in the sandbox (Windows-only rolldown binary in node_modules) - user to run locally.
+
+**Self-review (OWASP-frame):** new anon-callable function exposes only aggregate counts (minor business-info disclosure, accepted for a demo; admin-only variant documented). No secrets added; script rejects privileged keys. HTML output escapes all DB-sourced strings.
+
+**Next action:** user runs the SQL, copies the skill, enables Vercel Analytics, runs `pnpm build && pnpm test`; commit/push only on user's go-ahead (push auto-deploys).
+
+---
+
+## 2026-10-09 — Site-stats skill: one-shot PDF report, saved outside the repo
+
+**Request:** just trigger the skill and get a report to download/store - no questions. User chose PDF only, stored outside the repo.
+
+**What changed:**
+- `tools/claude-skills/site-stats/scripts/site-stats.mjs`: output is now a single dated PDF (`GearDrop-site-stats-YYYY-MM-DD_HHMM.pdf`) rendered by the app's own Playwright Chromium (resolved from the app's `node_modules` via `createRequire`; no new dependency). Default folder `Documents\GearDrop Reports` (falls back to `OneDrive\Documents`), overridable with `GEARDROP_REPORTS_DIR` or `--out`. Dropped `latest.html` + JSON snapshots; `--html` kept for debugging. Added A4 print CSS (light colours, 4-col KPIs, no cards split across pages). Clear errors for missing Playwright / missing Chromium.
+- `SKILL.md`: no up-front questions; runs immediately, adds `--visitors` only if the user already gave a number, replies with the PDF path + 2-3 headline numbers.
+- `.gitignore`: removed the `reports/` entry added earlier today (reports no longer go in the repo).
+
+**Tests run and results:** PDF call sequence verified with a stand-in Playwright module (print media + light scheme, A4, backgrounds, path with spaces); missing-Chromium and missing-Playwright errors verified; `--help`, default Documents folder resolution verified. **Real PDF rendering not verified** - the sandbox has no Chromium and can't read the pnpm-linked node_modules; user to run once locally.
+
+**Next action:** user runs it once locally to confirm the PDF looks right; commit on user's go-ahead.
+
+---
+
+## 2026-10-09 — Site-stats skill: installed, run for real against live Supabase
+
+**Request:** review the site-stats work, install the skill, run it for real, fix anything wrong, keep `pnpm build`/`pnpm test` green.
+
+**What changed:**
+- `.claude/skills/site-stats/` (new): installed copy of `tools/claude-skills/site-stats/` (kept identical).
+- `supabase-stats-setup.sql`: review average and star distribution now use `coalesce(followup_stars, stars)`, matching the site's `effectiveStars`. Added `deals.completed_priced` (completed deals whose listing still exists). Transactions don't store a price, so a deal's value is lost once its listing is deleted. User ran the updated file in the SQL Editor.
+- `site-stats.mjs`: money always shows 2 decimals when there are cents (S$389.50, not S$389.5). Shows "(N of M priced)" when some completed deals have no listing left. Correct plurals ("1 conversation"). A same-minute rerun saves `…-2.pdf` instead of overwriting. Tighter print CSS so the whole report, footnote included, fits on one A4 page (footnote `break-inside: avoid`). Footnote shortened and explains why deal/review totals can exceed listings/conversations.
+
+**Finding:** the live project's data is mostly e2e/integration test data: tests sign up real accounts (234 new users this week), create listings + deals and then delete the listings (deals and reviews survive, conversations and messages cascade away), and post Nyx feedback directly (307 helpful vs 48 questions). The report counts this correctly; real-user numbers need a separate test project or test cleanup (not changed here).
+
+**Tests run and results:** live report generated (`Documents\GearDrop Reports\GearDrop-site-stats-2026-10-09_1152-2.pdf`, 1 page); cross-checked internally (30-day signups = 296 total, star buckets 16+16 = 32 reviews, avg 4.5, funnel 18 → 17 → 16). Sample-data renders (full, empty + `--visitors`, unpriced deals) each 1 page. `pnpm build` clean. `pnpm test`: **114 Vitest passed (5 live-AI skipped) + 30 Playwright passed (2 opt-in `CHAT_E2E` skipped)**. `pnpm test` needs a `pnpm` on PATH (corepack shim) because the script calls `pnpm` itself.
+
+**Self-review (OWASP-frame):** `.env.local` holds only the publishable key and is gitignored (`*.env.*`); the script refuses secret/service_role keys. `site_stats()` still returns aggregates only.
+
+**Next action:** user reviews the diff; commit on go-ahead (no push, push deploys). Vercel Web Analytics must be enabled in the Vercel dashboard for visitor numbers.
