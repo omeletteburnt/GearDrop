@@ -1,0 +1,169 @@
+/* The big homepage Nyx (NyxMascot.tsx). Look/lean values arrive as CSS variables:
+   --lx/--ly cursor (-1..1), --gx random glance, --wl how hard he stares down at the incoming edge. */
+.nyx-spot{--lx:0;--ly:0;--gx:0;--wl:0;width:104px;height:104px;margin:-66px auto 14px}
+.nyx-spot .nyx-mascot{margin:0}
+.nyx-spot.away{visibility:hidden}
+.nyx-lean{transform:translate(calc(var(--lx) * 7px),calc((var(--ly) * (1 - var(--wl)) + var(--wl)) * 4px)) rotate(calc(var(--lx) * (1 - var(--wl)) * 10deg));transition:transform .2s ease-out}
+.m-eyes{position:absolute;inset:0;transform:translate(calc((var(--lx) + var(--gx)) * (1 - var(--wl)) * 12px),calc((var(--ly) * (1 - var(--wl)) + var(--wl)) * 9px));transition:transform .14s ease-out}
+.nyx-mascot.blink .eye{scale:1 .1}
+.nyx-mascot .eye{transition:height .15s,translate .15s,scale .1s,border-radius .15s}
+.nyx-spot.reading .m-eyes{transition-duration:.35s}
+
+/* very fast scroll: shocked, squashed flat against the screen, hands braced on either side */
+.nyx-lean{position:relative}
+.nyx-mascot.shock .eye{scale:1.35 1.25}
+.nyx-mascot.shock .glow{width:14px;height:14px;left:45px;bottom:15px;border-radius:50%;background:transparent;border:3px solid rgba(185,138,255,.7)}
+.nyx-mascot.brace{scale:1.12 .9;animation:nyx-brace .12s linear infinite}
+.brace-hand{position:absolute;top:34px;width:26px;height:32px;border-radius:13px;background:linear-gradient(160deg,var(--brass-strong),#5b3aa6);box-shadow:inset 0 -4px 0 rgba(0,0,0,.18),0 4px 10px rgba(0,0,0,.3);opacity:0;scale:.3;transition:opacity .12s,scale .2s cubic-bezier(.3,1.6,.5,1),translate .2s ease-out;pointer-events:none}
+.brace-hand.left{left:-8px}
+.brace-hand.right{right:-8px}
+.nyx-mascot.brace~.brace-hand{opacity:1;scale:1}
+.nyx-mascot.brace~.brace-hand.left{translate:-18px 0;rotate:-12deg}
+.nyx-mascot.brace~.brace-hand.right{translate:18px 0;rotate:12deg}
+@keyframes nyx-brace{0%,100%{translate:0 0}25%{translate:-1.5px 1px}75%{translate:1.5px -1px}}
+
+/* the goodbye: a copy of Nyx riding the top edge of the section sliding over him */
+.nyx-bye{--show:0px;position:fixed;top:0;left:0;width:0;height:0;z-index:21;pointer-events:none;visibility:hidden}
+.nyx-bye:not(.stage-none):not(.stage-watch):not(.stage-gone){visibility:visible}
+.bye-clip{position:absolute;bottom:0;left:-600px;width:1200px;height:1000px;overflow:hidden} /* big, so only what is below the edge is ever hidden */
+.nyx-mascot.bye-face{position:absolute;left:548px;top:calc(1000px - var(--show));margin:0;animation:none}
+.nyx-bye.stage-peek .bye-face{animation:bye-strain .5s ease-in-out infinite}
+.nyx-bye.stage-peek .bye-face .m-eyes{animation:bye-look 2.4s ease-in-out infinite}
+.nyx-bye.stage-grab .bye-face .m-eyes{transform:translateY(9px)}
+.nyx-bye.stage-wave .bye-face .eye{height:8px;border-radius:8px 8px 0 0;translate:0 8px}
+.nyx-bye.stage-wave .bye-face .glow{width:28px;height:12px;left:34px;border-radius:0 0 14px 14px;background:var(--accent-on-dark)}
+
+/* two little hands gripping the edge */
+.bye-hand{position:absolute;top:-9px;width:24px;height:16px;border-radius:12px 12px 8px 8px;background:linear-gradient(160deg,var(--brass-strong),#5b3aa6);box-shadow:0 2px 0 rgba(0,0,0,.25),inset 0 -3px 0 rgba(0,0,0,.18);opacity:0;scale:.4;transition:opacity .15s,scale .2s cubic-bezier(.3,1.6,.5,1),translate .25s ease-out}
+.bye-hand.left{left:-50px}
+.bye-hand.right{left:26px}
+.nyx-bye:is(.stage-grab,.stage-peek,.stage-wave) .bye-hand{opacity:1;scale:1}
+.nyx-bye.stage-peek .bye-hand.left{animation:bye-grip .5s ease-in-out infinite}
+.nyx-bye.stage-peek .bye-hand.right{animation:bye-grip .5s ease-in-out infinite reverse}
+.nyx-bye.stage-wave .bye-hand.right{translate:22px -46px;transform-origin:50% 100%;animation:bye-wave .45s ease-in-out infinite alternate}
+/* climbing up over the top bar: hands push down on the edge */
+.nyx-bye.stage-climb .bye-hand{opacity:1;scale:1;translate:0 -2px}
+.nyx-bye.stage-climb .bye-face .m-eyes{transform:translateY(-4px)}
+
+/* ...and the leap off the top of the screen */
+.nyx-bye.leaving{visibility:visible!important}
+.nyx-bye.leaving .bye-clip{overflow:visible}
+.nyx-bye.leaving .bye-face{top:calc(1000px - 96px);animation:bye-leap .75s cubic-bezier(.3,.7,.4,1) forwards}
+.nyx-bye.leaving .bye-face .eye{height:8px;border-radius:8px 8px 0 0;translate:0 8px}
+.nyx-bye.leaving .bye-hand{opacity:0;translate:0 -30px}
+.nyx-bye.leaving .bye-bubble{opacity:0}
+@keyframes bye-leap{0%{translate:0 0;scale:1.1 .85}20%{translate:0 8px;scale:1.18 .78}50%{translate:150px -40px;rotate:18deg;scale:.95 1.08;opacity:1}80%{translate:330px -120px;rotate:32deg;scale:.85;opacity:1}100%{translate:460px -300px;rotate:45deg;scale:.7;opacity:0}}
+
+.bye-bubble{position:absolute;bottom:calc(var(--show) + 6px);left:-150px;padding:6px 11px;border-radius:14px 14px 4px 14px;background:var(--paper);color:var(--void);font-size:13px;font-weight:700;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.3);opacity:0;scale:.6;transform-origin:100% 100%;transition:opacity .15s,scale .25s cubic-bezier(.3,1.6,.5,1)}
+.nyx-bye.stage-wave .bye-bubble{opacity:1;scale:1}
+
+/* flicked off the edge: lets go (hands and bubble go) and drops behind the section */
+.nyx-bye.flicked .bye-hand,.nyx-bye.flicked .bye-bubble{opacity:0;transition:opacity .1s}
+.nyx-bye.flicked .bye-face{animation:none;pointer-events:none}
+/* leapt off: stays gone; he's back in his own spot when you scroll up */
+.nyx-bye.left{visibility:hidden!important}
+.nyx-mascot.bye-face{pointer-events:auto;cursor:pointer}
+
+/* very fast scroll mid-goodbye: clings on, squashed and shaking */
+.nyx-bye.brace .bye-face{scale:1.1 .92;animation:nyx-brace .12s linear infinite}
+.nyx-bye.brace .bye-hand{scale:1.25;animation:none}
+.nyx-bye.brace .bye-hand.left{translate:-8px 0}
+.nyx-bye.brace .bye-hand.right{translate:8px 0;rotate:0deg}
+.nyx-bye.brace .bye-bubble{opacity:0}
+
+@keyframes bye-strain{50%{translate:0 -3px}}
+@keyframes bye-look{0%,100%{transform:translate(0,-2px)}30%{transform:translate(-12px,-4px)}65%{transform:translate(12px,-4px)}}
+@keyframes bye-grip{50%{translate:0 -3px}}
+@keyframes bye-wave{from{rotate:-22deg}to{rotate:22deg}}
+
+@media (prefers-reduced-motion: reduce){.nyx-lean,.m-eyes{transition:none;transform:none}}
+
+/* tickled: wiggle the cursor on his tummy and he giggles */
+.nyx-mascot.tickled{animation:nyx-giggle .16s ease-in-out infinite}
+.nyx-mascot.tickled .eye{height:8px;border-radius:8px 8px 0 0;translate:0 8px}
+.nyx-mascot.tickled .glow{width:30px;height:13px;left:33px;border-radius:0 0 15px 15px;background:var(--accent-on-dark)}
+.tickle-text{position:absolute;top:-6px;right:-58px;padding:4px 9px;border-radius:12px 12px 12px 4px;background:var(--paper);color:var(--void);font-size:12px;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,.3);opacity:0;scale:.6;transform-origin:0 100%;transition:opacity .15s,scale .25s cubic-bezier(.3,1.6,.5,1);pointer-events:none}
+.tickle-text.on{opacity:1;scale:1;animation:nyx-hehe .3s ease-in-out infinite alternate}
+@keyframes nyx-giggle{0%,100%{rotate:0deg;translate:0 0}25%{rotate:-6deg;translate:-2px -2px}75%{rotate:6deg;translate:2px -2px}}
+@keyframes nyx-hehe{to{translate:0 -3px}}
+
+/* angry: back home after being flicked off, he glares for 3 s */
+.nyx-mascot.angry{animation:nyx-huff 1s ease-in-out infinite}
+.nyx-mascot.angry .eye{height:11px;top:46px;border-radius:2px 2px 8px 8px;background:#ffd9d9;box-shadow:0 0 10px rgba(255,90,90,.6)}
+.nyx-mascot.angry .eye.left{rotate:20deg}
+.nyx-mascot.angry .eye.right{rotate:-20deg}
+.nyx-mascot.angry .glow{width:22px;height:9px;left:37px;bottom:20px;border-radius:11px 11px 0 0;background:transparent;border:3px solid rgba(255,120,120,.75);border-bottom:0}
+.nyx-mascot.angry .antenna{color:#ff6b6b}
+.angry-mark{position:absolute;top:-10px;right:-14px;font-size:22px;opacity:0;scale:.4;transition:opacity .15s,scale .25s cubic-bezier(.3,1.6,.5,1);pointer-events:none}
+.angry-mark.on{opacity:1;scale:1;animation:nyx-throb .5s ease-in-out infinite alternate}
+@keyframes nyx-huff{0%,60%,100%{translate:0 0;scale:1}70%{translate:0 2px;scale:1.06 .95}80%{translate:-2px 0}90%{translate:2px 0}}
+@keyframes nyx-throb{to{scale:1.2}}
+
+/* flicked mid bye-bye: the bubble turns into an indignant "hey!" while he drops */
+.nyx-bye.flicked.hey .bye-bubble{opacity:1;scale:1;font-size:15px;animation:nyx-throb .25s ease-in-out infinite alternate}
+.nyx-bye.flicked .bye-face .eye{height:20px;border-radius:50%;translate:0 0;scale:1.35 1.25} /* shocked, even mid-wave */
+.nyx-bye.flicked .bye-face .glow{width:14px;height:14px;left:45px;bottom:15px;border-radius:50%;background:transparent;border:3px solid rgba(185,138,255,.7)}
+/* ...but when he says "hey!" it's disbelief: one eye narrowed, one wide, a flat unimpressed mouth */
+.nyx-bye.flicked.hey .bye-face .eye.left{height:9px;border-radius:2px 2px 9px 9px;translate:0 7px;scale:1.25 1;rotate:-8deg}
+.nyx-bye.flicked.hey .bye-face .eye.right{scale:1.3 1.4;rotate:0deg}
+.nyx-bye.flicked.hey .bye-face .glow{width:20px;height:4px;left:42px;bottom:21px;border:0;border-radius:4px;background:rgba(185,138,255,.75);rotate:-6deg}
+
+/* tickled for 5 s: both hands flail over his tummy trying to swat you away */
+.nyx-mascot.flail~.brace-hand{opacity:1;scale:.85}
+.nyx-mascot.flail~.brace-hand.left{animation:nyx-flail-l .26s ease-in-out infinite alternate}
+.nyx-mascot.flail~.brace-hand.right{animation:nyx-flail-r .2s ease-in-out infinite alternate}
+.nyx-mascot.flail{animation-duration:.12s}
+@keyframes nyx-flail-l{from{translate:-16px 6px;rotate:-50deg}to{translate:22px 44px;rotate:35deg}}
+@keyframes nyx-flail-r{from{translate:18px 0;rotate:45deg}to{translate:-6px 52px;rotate:-30deg}}
+
+/* tickling stopped: he settles down slowly, giggles slowing, hands lowering, then just a smile */
+.nyx-mascot.tickled.settling{animation:nyx-giggle .55s ease-in-out infinite}
+.nyx-mascot.settling~.brace-hand{opacity:0;scale:.6;translate:0 30px;transition:opacity 1.2s,scale 1.2s,translate 1.2s}
+.nyx-mascot.afterglow .eye{height:8px;border-radius:8px 8px 0 0;translate:0 8px}
+.nyx-mascot.afterglow .glow{width:24px;height:10px;left:36px;border-radius:0 0 12px 12px;background:var(--accent-on-dark)}
+.nyx-mascot .glow{transition:all .6s ease}
+.tickle-text.fading{opacity:.6;animation:none;transition:opacity 1.2s}
+
+/* cursor still for 2 s: both arms slowly stretch out, as far as it takes, to the cursor */
+.nyx-reach{--hole:circle 0px at 0 0;position:fixed;inset:0;z-index:21;pointer-events:none;-webkit-mask:radial-gradient(var(--hole),transparent 98%,#000 100%);mask:radial-gradient(var(--hole),transparent 98%,#000 100%)} /* a hole where his body is, so the arms come from behind him */
+.reach-arm{--rl:0px;position:absolute;width:0;height:12px;margin-top:-6px;transform-origin:0 50%;border-radius:6px;background:linear-gradient(90deg,#5b3aa6,var(--brass-strong));box-shadow:0 2px 6px rgba(0,0,0,.3);opacity:0;transition:width .08s ease-in,opacity .08s}
+.nyx-reach.reaching .reach-arm{opacity:1;width:var(--rl);transition:width 3s cubic-bezier(.45,0,.25,1),opacity .3s}
+.reach-hand{position:absolute;right:-14px;top:50%;width:26px;height:22px;margin-top:-11px;border-radius:12px 12px 10px 10px;background:linear-gradient(160deg,var(--brass-strong),#5b3aa6);box-shadow:inset 0 -3px 0 rgba(0,0,0,.18)}
+.nyx-reach.reaching .reach-hand{animation:nyx-grabby .5s ease-in-out infinite alternate}
+.nyx-reach.examining .reach-arm .reach-hand{animation:nyx-poke .7s ease-in-out infinite}
+.nyx-reach.examining .reach-arm+.reach-arm .reach-hand{animation-delay:.35s}
+.nyx-spot.reaching .m-eyes{transition-duration:.6s}
+.nyx-mascot.curious{animation:nyx-curious 2.4s ease-in-out infinite}
+@keyframes nyx-grabby{from{scale:1 1}to{scale:.8 1.15}}
+@keyframes nyx-poke{0%,100%{translate:0 0;rotate:0deg}40%{translate:6px 0;rotate:10deg}60%{translate:6px 0;rotate:-10deg}}
+@keyframes nyx-curious{0%,100%{rotate:0deg}30%,60%{rotate:14deg}}
+
+/* caught reaching: looks up and away, whistling, as if nothing happened */
+.nyx-mascot.innocent .m-eyes{animation:nyx-look-around 5s ease-in-out forwards}
+.nyx-mascot.innocent .glow{width:10px;height:10px;left:47px;bottom:17px;border-radius:50%;background:transparent;border:3px solid rgba(185,138,255,.7)}
+.nyx-mascot.easing .m-eyes{transition:transform 1.2s ease-in-out}
+.nyx-mascot.easing-hold .m-eyes{transform:translate(0,-8px)} /* where the look-around ends */
+.nyx-mascot.easing .glow{transition:all 1.2s ease-in-out}
+.whistle{position:absolute;top:6px;right:-26px;font-size:20px;color:var(--accent-on-dark);opacity:0;pointer-events:none}
+.whistle.on{animation:nyx-note 1.25s ease-out 4}
+@keyframes nyx-look-around{0%{transform:translate(-11px,-7px)}25%{transform:translate(-11px,-7px)}45%{transform:translate(11px,-6px)}62%{transform:translate(11px,-6px)}78%{transform:translate(-4px,4px)}100%{transform:translate(0,-8px)}}
+@keyframes nyx-note{0%{opacity:0;translate:0 6px}20%{opacity:1}100%{opacity:0;translate:10px -22px;rotate:15deg}}
+
+/* eyebrows: hidden until he's genuinely curious about the cursor he's examining */
+.nyx-mascot .brow{position:absolute;top:30px;width:16px;height:4px;border-radius:3px;background:var(--paper);opacity:0;transition:opacity .4s,translate .4s,rotate .4s}
+.nyx-mascot .brow.left{left:27px}
+.nyx-mascot .brow.right{right:27px}
+.nyx-mascot.curious .brow{opacity:.9}
+.nyx-mascot.curious .brow.left{translate:0 -7px;rotate:-14deg;animation:nyx-brow-arch 2.4s ease-in-out infinite}
+.nyx-mascot.curious .brow.right{translate:0 -3px;rotate:8deg}
+.nyx-mascot.curious .eye{scale:1.12 1.18}
+.nyx-mascot.curious .glow{width:9px;height:9px;left:47px;bottom:18px;border-radius:50%;background:rgba(185,138,255,.6)}
+@keyframes nyx-brow-arch{0%,100%{translate:0 -7px}30%,60%{translate:0 -10px}}
+
+/* mid-examining: a quick check that you're not watching: straight at you, brows flat, hands frozen */
+.nyx-mascot.curious.checking{animation:none;rotate:0deg}
+.nyx-mascot.checking .m-eyes{transform:translate(0,1px);transition:transform .15s}
+.nyx-mascot.checking .eye{scale:1}
+.nyx-mascot.checking .brow.left,.nyx-mascot.checking .brow.right{animation:none;translate:0 -1px;rotate:0deg;transition:translate .15s,rotate .15s}
+.nyx-mascot.checking .glow{width:16px;height:4px;left:44px;bottom:21px;border-radius:3px;background:rgba(185,138,255,.7)}
+.nyx-reach.checking .reach-hand{animation-play-state:paused}

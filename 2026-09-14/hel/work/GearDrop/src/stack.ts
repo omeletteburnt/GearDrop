@@ -5,9 +5,9 @@
 // Performance: values are written straight onto each section (never as
 // inherited CSS variables, which would restyle every card inside), only when
 // they change; blur moves in 0.5 px steps; fully covered sections are hidden.
-const NAV = 76; // sticky top bar height
+export const NAV = 76; // sticky top bar height
 const clamp = (n: number) => Math.min(1, Math.max(0, n));
-const MEDIA = "(min-width: 700px) and (prefers-reduced-motion: no-preference)";
+export const MEDIA = "(min-width: 700px) and (prefers-reduced-motion: no-preference)";
 
 // Pure maths for one section (unit-tested). `top` is its on-screen top,
 // `height` its height, `nextTop` the next section's top (null if last).

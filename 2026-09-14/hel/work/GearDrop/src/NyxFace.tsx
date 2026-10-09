@@ -13,7 +13,7 @@ function onMove(e: PointerEvent) {
   lastX = e.clientX; lastY = e.clientY;
   if (!frame) frame = requestAnimationFrame(() => { frame = 0; watchers.forEach(w => w(lastX, lastY)); });
 }
-function watchPointer(w: Watcher) {
+export function watchPointer(w: Watcher) {
   if (!watchers.size) window.addEventListener("pointermove", onMove, { passive: true });
   watchers.add(w);
   return () => { watchers.delete(w); if (!watchers.size) window.removeEventListener("pointermove", onMove); };
