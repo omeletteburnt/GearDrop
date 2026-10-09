@@ -354,6 +354,9 @@ function PaymentPanel({ conv, chatKey, deal, isSeller, send, close }: { conv: Co
   const [editing, setEditing] = useState(!payment);
   const [method, setMethod] = useState<"qr" | "phone">("qr");
   const [phone, setPhone] = useState(""); const [file, setFile] = useState<File | null>(null);
+  const qrInput = useRef<HTMLInputElement>(null);
+  const [qrPreview, setQrPreview] = useState("");
+  useEffect(() => { if (!file) { setQrPreview(""); return; } const u = URL.createObjectURL(file); setQrPreview(u); return () => URL.revokeObjectURL(u); }, [file]);
   const [busy, setBusy] = useState(false); const [error, setError] = useState(""); const [copied, setCopied] = useState("");
   useEffect(() => { if (payment) setEditing(false); }, [payment]);
 
@@ -390,11 +393,19 @@ function PaymentPanel({ conv, chatKey, deal, isSeller, send, close }: { conv: Co
     {isSeller && editing && <form className="payment-form" onSubmit={submit}>
       <b>How should the buyer pay you?</b>
       <div className="method-toggle" role="radiogroup" aria-label="Payment method">
-        <label><input type="radio" name="method" checked={method === "qr"} onChange={() => setMethod("qr")} /> PayNow QR</label>
-        <label><input type="radio" name="method" checked={method === "phone"} onChange={() => setMethod("phone")} /> Phone number</label>
+        <label className={method === "qr" ? "on" : ""}><input type="radio" name="method" checked={method === "qr"} onChange={() => setMethod("qr")} /><span className="method-icon" aria-hidden="true">▦</span><span><b>PayNow QR</b><small>From your banking app</small></span></label>
+        <label className={method === "phone" ? "on" : ""}><input type="radio" name="method" checked={method === "phone"} onChange={() => setMethod("phone")} /><span className="method-icon" aria-hidden="true">📱</span><span><b>Phone number</b><small>Buyer pays your mobile</small></span></label>
       </div>
-      {method === "qr" ? <label>Upload your PayNow QR (from your banking app)<input type="file" accept="image/*" onChange={e => setFile(e.target.files?.[0] ?? null)} /></label>
-        : <label>PayNow mobile number<input value={phone} onChange={e => setPhone(e.target.value)} inputMode="tel" placeholder="9123 4567" /></label>}
+      {method === "qr" ? <div className="qr-pick">
+        <input ref={qrInput} type="file" accept="image/*" hidden aria-label="Choose your PayNow QR image" onChange={e => { setFile(e.target.files?.[0] ?? null); e.target.value = ""; }} />
+        {qrPreview ? <div className="qr-chosen">
+          <img src={qrPreview} alt="Your PayNow QR (preview)" />
+          <span><b>{file?.name}</b><small>Check it's your QR before sending.</small><button type="button" className="btn ghost" onClick={() => qrInput.current?.click()}>Change</button></span>
+        </div> : <button type="button" className="qr-drop" onClick={() => qrInput.current?.click()}>
+          <span className="qr-drop-icon" aria-hidden="true">▦</span><b>Choose your PayNow QR</b><small>A screenshot or saved image from your banking app</small>
+        </button>}
+      </div>
+        : <label>PayNow mobile number<span className="phone-field"><span aria-hidden="true">+65</span><input value={phone} onChange={e => setPhone(e.target.value)} inputMode="tel" placeholder="9123 4567" /></span></label>}
       <p className="muted">These details are encrypted — only the buyer can see them.</p>
       {error && <p className="field-error" role="alert">{error}</p>}
       <button className="btn primary" disabled={busy}>{busy ? "Sending…" : "Send to buyer"}</button>

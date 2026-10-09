@@ -85,8 +85,29 @@
 .payment-phone{margin:0;font:600 22px var(--font-mono)}
 .payment-form label{display:grid;gap:6px;font-size:13px;font-weight:600}
 .payment-form input:not([type=radio]){border:1px solid var(--border);border-radius:var(--radius-s);padding:10px 12px;background:var(--surface);color:var(--text)}
-.method-toggle{display:flex;gap:var(--sp-4)}
-.method-toggle label{display:flex;align-items:center;gap:6px;font-weight:500}
+.method-toggle{display:grid;gap:var(--sp-2)}
+.method-toggle label{position:relative;display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--radius-m);cursor:pointer;transition:border-color .15s,background .15s}
+.method-toggle label.on{border-color:var(--brass);background:var(--brass-soft)}
+.method-toggle label:focus-within{outline:2px solid var(--brass);outline-offset:2px}
+.method-toggle input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer} /* invisible, but covers the whole card so any click selects it */
+.method-toggle b{display:block;font-size:13.5px}
+.method-toggle small{display:block;font-size:11.5px;font-weight:500;color:var(--text-soft)}
+.method-icon{flex:none;display:grid;place-items:center;width:30px;height:30px;border-radius:8px;background:var(--surface-2);font-size:17px}
+.method-toggle label.on .method-icon{background:var(--brass);color:#fff}
+.qr-drop{display:grid;justify-items:center;gap:4px;width:100%;padding:22px 14px;border:2px dashed var(--border);border-radius:var(--radius-m);background:transparent;color:var(--text);cursor:pointer;text-align:center;transition:border-color .15s,background .15s}
+.qr-drop:hover,.qr-drop:focus-visible{border-color:var(--brass);background:var(--brass-soft);outline:none}
+.qr-drop-icon{font-size:28px;line-height:1;color:var(--brass-ink)}
+.qr-drop small{font-size:12px;color:var(--text-soft)}
+.qr-chosen{display:flex;gap:12px;align-items:center;padding:10px;border:1.5px solid var(--brass);border-radius:var(--radius-m);background:var(--brass-soft)}
+.qr-chosen img{flex:none;width:84px;height:84px;object-fit:contain;border-radius:8px;background:#fff;padding:4px}
+.qr-chosen span{display:grid;gap:2px;min-width:0}
+.qr-chosen b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qr-chosen small{font-size:12px;color:var(--text-soft)}
+.qr-chosen .btn{justify-self:start;margin-top:4px;padding:5px 12px}
+.phone-field{display:flex;align-items:stretch;border:1px solid var(--border);border-radius:var(--radius-s);overflow:hidden;background:var(--surface)}
+.phone-field>span{display:grid;place-items:center;padding:0 10px;background:var(--surface-2);font:600 14px var(--font-mono);color:var(--text-soft)}
+.payment-form .phone-field input{flex:1;border:0;border-radius:0;font:600 16px var(--font-mono);letter-spacing:.04em}
+.payment-form .btn.primary{width:100%}
 .payment-tips{margin-top:auto;padding:var(--sp-4);background:var(--warn-soft);border-radius:var(--radius-m);font-size:13px;line-height:1.5}
 .payment-tips ul{margin:6px 0 0;padding-left:18px}
 

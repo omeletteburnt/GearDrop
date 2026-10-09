@@ -5,7 +5,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' blob: https://images.unsplash.com https://cdn.iset.io https://files.pccasegear.com; media-src 'self' blob:; connect-src 'self' https://vtulwvjjvgbrgxqzeemi.supabase.co wss://vtulwvjjvgbrgxqzeemi.supabase.co; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; frame-src 'none'; upgrade-insecure-requests"
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' blob: https://images.unsplash.com https://cdn.iset.io https://files.pccasegear.com https://vtulwvjjvgbrgxqzeemi.supabase.co; media-src 'self' blob:; connect-src 'self' https://vtulwvjjvgbrgxqzeemi.supabase.co wss://vtulwvjjvgbrgxqzeemi.supabase.co; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; frame-src 'none'; upgrade-insecure-requests"
         },
         {
           "key": "X-Frame-Options",

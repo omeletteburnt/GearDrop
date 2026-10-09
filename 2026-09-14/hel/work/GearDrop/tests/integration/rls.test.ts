@@ -1,3 +1,4 @@
+import { testPhoto } from "../livePhoto";
 import { createClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -63,6 +64,7 @@ run("RLS policies (live Supabase)", () => {
     const { data, error } = await asA.from("listings").insert({
       owner_id: userAId, name: "VITEST-RLS-ITEM", category: "Mics", price: 1,
       condition: "Good", image: "https://images.unsplash.com/photo-1590602847861-f357a9332bbc", description: "vitest rls test", seller: "rlstest_vitest_a",
+      photos: [await testPhoto(asA, userAId)],
     }).select().single();
     expect(error).toBeNull();
     listingId = data!.id;

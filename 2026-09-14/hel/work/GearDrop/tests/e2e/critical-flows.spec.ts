@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { menu, logOut, expectSignedIn } from "./menu";
+import { png } from "./png";
 
 const suffix = Date.now();
 
@@ -103,12 +104,17 @@ test("sign-up -> create a listing -> delete it", async ({ page }) => {
   await sellDialog.locator('input[name="price"]').fill("25");
   await sellDialog.locator('textarea[name="description"]').fill("A listing created by an automated end-to-end test.");
   await sellDialog.locator('input[name="details"]').fill("Automated test, no real specs.");
+  await sellDialog.getByLabel("Choose photos").setInputFiles([png("mic.png", "8040c0")]); // photos are required
+  await expect(sellDialog.locator(".photo-shot.busy")).toHaveCount(0, { timeout: 10000 });
   await sellDialog.getByRole("button", { name: /publish listing/i }).click();
   await expect(sellDialog).toHaveCount(0, { timeout: 10000 });
 
   const newCard = page.locator(".card", { hasText: listingName });
   await expect(newCard).toBeVisible();
   await newCard.click();
+  const photoUrl = await page.locator(".gallery>img").getAttribute("src");
+  expect(photoUrl).toContain("/storage/v1/object/public/listing-photos/"); // the uploaded photo is the cover
+  expect((await page.request.get(photoUrl!)).status()).toBe(200);
 
   const detail = page.locator('[role="dialog"]').first();
   await detail.getByRole("button", { name: "Delete listing" }).click();
@@ -117,6 +123,7 @@ test("sign-up -> create a listing -> delete it", async ({ page }) => {
 
   await expect(page.locator(".card", { hasText: listingName })).toHaveCount(0);
   await expect(page.locator(".toast")).toHaveText(/removed/i);
+  await expect.poll(async () => (await page.request.get(`${photoUrl}?gone=${Date.now()}`)).status(), { timeout: 10000 }).not.toBe(200); // photo deleted too
 });
 
 test("sign up with a real email, then sign back in using that email", async ({ page }) => {

@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { testPhoto } from "../livePhoto";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { menu, expectSignedIn } from "./menu";
 
@@ -45,7 +46,7 @@ live("messages to someone without a chat key are held, then delivered after they
   const seller = await makeUser("hs"); // never signs in through the app yet = no chat key
   const buyer = await makeUser("hb");
   const listingName = `E2E Held Keyboard ${suffix}`;
-  const { data: listing, error } = await seller.client.from("listings").insert({ owner_id: seller.id, name: listingName, category: "Keyboards", price: 40, condition: "Good", image: "https://images.unsplash.com/photo-1587829741301-dc798b83add3", description: "e2e held test", seller: seller.username }).select().single();
+  const { data: listing, error } = await seller.client.from("listings").insert({ owner_id: seller.id, name: listingName, category: "Keyboards", price: 40, condition: "Good", image: "https://images.unsplash.com/photo-1587829741301-dc798b83add3", description: "e2e held test", photos: [await testPhoto(seller.client, seller.id)], seller: seller.username }).select().single();
   if (error) throw error;
   try {
     const buyerPage = await signedInPage(browser, buyer.email);
@@ -80,7 +81,7 @@ live("buyer and seller chat, negotiate, confirm, and share PayNow details", asyn
   const seller = await makeUser("s");
   const buyer = await makeUser("b");
   const listingName = `E2E Chat Mouse ${suffix}`;
-  const { data: listing, error } = await seller.client.from("listings").insert({ owner_id: seller.id, name: listingName, category: "Mouses", price: 90, condition: "Good", image: "https://images.unsplash.com/photo-1527814050087-3793815479db", description: "e2e chat test", seller: seller.username }).select().single();
+  const { data: listing, error } = await seller.client.from("listings").insert({ owner_id: seller.id, name: listingName, category: "Mouses", price: 90, condition: "Good", image: "https://images.unsplash.com/photo-1527814050087-3793815479db", description: "e2e chat test", photos: [await testPhoto(seller.client, seller.id)], seller: seller.username }).select().single();
   if (error) throw error;
 
   try {

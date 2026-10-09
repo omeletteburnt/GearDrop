@@ -174,12 +174,14 @@ export function subscribeInbox(onChange: () => void): () => void {
 // ---------- media ----------
 // Photos are re-drawn onto a canvas: this shrinks them and strips EXIF data
 // (including GPS location) before encryption.
-async function compressImage(file: File): Promise<Blob> {
+export async function compressImage(file: File): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(bitmap.width * scale); canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  const g = canvas.getContext("2d")!;
+  g.fillStyle = "#fff"; g.fillRect(0, 0, canvas.width, canvas.height); // transparent PNGs: white, not black, as JPEG
+  g.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close();
   return new Promise((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error("Could not process this photo.")), "image/jpeg", 0.85));
 }

@@ -160,15 +160,14 @@ export async function signOut() {
   await supabase.auth.signOut();
 }
 
+const LISTING_COLUMNS = "id,owner_id,name,category,price,condition,status,image,description,specs,missing,seller,created_at";
 export async function loadListings(): Promise<Listing[]> {
   if (!url || !key) return [];
-  const { data, error } = await supabase
-    .from("listings")
-    .select("id,owner_id,name,category,price,condition,status,image,description,specs,missing,seller,created_at")
-    .order("created_at", { ascending: false })
-    .limit(200);
+  const query = (cols: string) => supabase.from("listings").select(cols).order("created_at", { ascending: false }).limit(200);
+  let { data, error } = await query(`${LISTING_COLUMNS},photos`);
+  if (error) ({ data, error } = await query(LISTING_COLUMNS)); // before supabase-photos-setup.sql has been run
   if (error || !data) return [];
-  return data.map((x: any) => ({ ...x, databaseId: x.id, ownerId: x.owner_id, posted: new Date(x.created_at).toLocaleDateString() }));
+  return (data as any[]).map((x: any) => ({ ...x, databaseId: x.id, ownerId: x.owner_id, posted: new Date(x.created_at).toLocaleDateString() }));
 }
 
 export async function saveListing(listing: Omit<Listing, "id" | "posted">): Promise<Listing> {

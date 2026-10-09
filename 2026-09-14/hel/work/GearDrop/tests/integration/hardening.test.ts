@@ -1,3 +1,4 @@
+import { testPhoto } from "../livePhoto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -16,13 +17,17 @@ async function user(tag: string): Promise<{ id: string; name: string; db: Supaba
   await db.from("profiles").upsert({ id: data.session.user.id, username: name });
   return { id: data.session.user.id, name, db };
 }
+const photoOf: Record<string, string> = {}; // each test user's own uploaded photo
 const listing = (owner: string, extra: Record<string, unknown> = {}) =>
-  ({ owner_id: owner, name: "HARDENING-ITEM", category: "Mics", price: 10, condition: "Good", image: IMG, description: "hardening test", seller: "anyone", ...extra });
+  ({ owner_id: owner, name: "HARDENING-ITEM", category: "Mics", price: 10, condition: "Good", image: IMG, description: "hardening test", seller: "anyone", photos: [photoOf[owner]], ...extra });
 
 run("security hardening (live Supabase)", () => {
   let a: Awaited<ReturnType<typeof user>>, b: typeof a;
   let listingId = 0;
-  beforeAll(async () => { [a, b] = await Promise.all([user("a"), user("b")]); }, 30_000);
+  beforeAll(async () => {
+    [a, b] = await Promise.all([user("a"), user("b")]);
+    for (const u of [a, b]) photoOf[u.id] = await testPhoto(u.db, u.id);
+  }, 30_000);
 
   it("the seller name always comes from the owner's profile, not the client", async () => {
     const { data, error } = await a.db.from("listings").insert(listing(a.id, { seller: "Kai" })).select().single();
@@ -39,10 +44,10 @@ run("security hardening (live Supabase)", () => {
     expect(data!.owner_id).toBe(a.id);
   });
 
-  it("rejects off-site images, oversized text, absurd prices and junk specs", async () => {
+  it("rejects off-site photos, oversized text, absurd prices and junk specs", async () => {
     const bad = [
-      { image: "https://evil.example/pixel.gif" },
-      { image: "javascript:alert(1)" },
+      { photos: ["https://evil.example/pixel.gif"] },
+      { photos: ["javascript:alert(1)"] },
       { description: "x".repeat(2001) },
       { name: "x".repeat(121) },
       { price: 1_000_000 },

@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { testPhoto } from "../livePhoto";
 import { expect, test } from "@playwright/test";
 
 // Verifies that XSS payloads stored in listing fields (e.g. via a direct API
@@ -31,6 +32,7 @@ test("XSS payloads in listing fields render as inert text", async ({ page }) => 
     image: "https://images.unsplash.com/photo-1590602847861-f357a9332bbc",
     description: payloadDescription,
     seller: "xss-test",
+    photos: [await testPhoto(asOwner, data.session.user.id)],
   }).select().single();
   if (insertError) throw insertError;
 
