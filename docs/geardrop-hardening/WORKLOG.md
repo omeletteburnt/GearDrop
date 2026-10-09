@@ -441,7 +441,7 @@
 
 ## 2026-09-16 — Session 1 (continued) — Real follow-up bug: autofill doesn't clear stale errors
 
-**What happened:** User sent a screenshot showing the "Password must be at least 6 characters." error still displayed, with the username field showing a browser-autofilled email (`[my email]`, visibly highlighted blue — Chrome's autofill indicator) and a password field with ~10 characters already entered.
+**What happened:** User sent a screenshot showing the "Password must be at least 6 characters." error still displayed, with the username field showing a browser-autofilled email (`my email`), visibly highlighted blue — Chrome's autofill indicator) and a password field with ~10 characters already entered.
 
 **Root cause:** Chrome (and most autofill/password-manager mechanisms) sets an input's value using the native property setter, which does **not** dispatch the `input`/`change` events that React's `onChange` listens for. The stale-error-clearing logic added in the previous fix (`onChange={() => setMessage("")}`) never ran for autofilled fields, so a leftover error from an earlier failed attempt stayed on screen even after autofill supplied a valid password — looking exactly like "still broken," even though a real submit click would very likely have succeeded.
 
@@ -486,7 +486,7 @@
 
 ## 2026-09-17 — Session 1 (continued) — Root-causing the *recurring* stale-error bug properly
 
-**Context:** User reported the same-looking stale "Password must be at least 6 characters" error a *third* time, this time with the email field showing browser autofill (blue-highlighted `[my email]`) and asked to check thoroughly why this keeps recurring rather than accept another point patch.
+**Context:** User reported the same-looking stale "Password must be at least 6 characters" error a *third* time, this time with the email field showing browser autofill (blue-highlighted `my email') and asked to check thoroughly why this keeps recurring rather than accept another point patch.
 
 **Why the previous fix (the `:-webkit-autofill`/`animationstart` CSS trick, from the 2026-09-16 session) wasn't enough:** it only fires **once** — the first time a field transitions into the browser's autofill-matched state. It does not fire again if: the field is autofilled a second time, a *different* autofill mechanism is used for a different field (e.g. Chrome's "suggest a strong password" affordance, which can populate the password field through a different code path than a saved-credential autofill), or an extension/password manager sets the value through yet another mechanism entirely. In the reported screenshot, the email field was autofilled (which the trick does handle) but the password field's ~10-character value most likely arrived through a different mechanism that never re-triggered the CSS animation for that field, so its stale error just sat there. This is a fundamentally fragile approach — every fix in this direction is chasing one more event-emission edge case among an open-ended set.
 
@@ -649,7 +649,7 @@ Kept a `isLocalError` ref to distinguish "local validation message that should b
 
 **Findings:**
 - `TheKey.env` (uploaded 2026-09-14 in cbb91c4, deleted 2026-09-16 in 65b5a27) is still in the public history and contains an `API_KEY`. User to regenerate it at its provider.
-- The user's personal email appears in this WORKLOG (lines 444, 489); user chose to leave it.
+- The user's personal email appears in this WORKLOG (lines 444, 489); removed on 2026-10-09.
 - Hosted Supabase leaves `auth.audit_log_entries.ip_address` empty (verified), so IP/location checks aren't possible from the database; the report lists admin sign-ins by time and points to Authentication → Logs. "Write audit logs to the database" was off; the user turned it on.
 - Live site is byte-for-byte a build of `origin/main` (CRLF in a Windows checkout's `index.html` is normalised before comparing).
 
