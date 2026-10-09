@@ -23,7 +23,7 @@
 .chat-head div{display:grid;gap:2px;min-width:0}
 .chat-head b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chat-head small{color:var(--text-soft);font-size:12.5px}
-.chat-head .close{position:static}
+.chat-head .close{position:relative;top:auto;right:auto}
 .block-btn{padding:8px 10px;font-size:13px}
 .chat-notice{margin:var(--sp-4);padding:var(--sp-4);background:var(--surface-2);border-radius:var(--radius-m);color:var(--text-soft);font-size:14px;line-height:1.5}
 .chat-error{margin:0 var(--sp-4) var(--sp-3)}
