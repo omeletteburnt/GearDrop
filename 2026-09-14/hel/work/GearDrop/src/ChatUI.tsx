@@ -4,7 +4,8 @@ import { blockedByMe, conversationKey, deliverHeld, hasChatKey, holdMessage, inc
 import { CONFIRM_DELAY_MS, deriveDeal, normalisePayNowPhone, validOfferAmount, type Deal, type Payload } from "./deal";
 import { safeImageUrl } from "./validation";
 import { overlayClick, useModalA11y } from "./modal";
-import { recordDealStep } from "./reviews";
+import { ratingSummary, recordDealStep, type Rating } from "./reviews";
+import { StarRating, type ProfileTarget } from "./ProfileUI";
 import { ReviewBar } from "./ReviewsUI";
 
 const MAX_TEXT = 2000;
@@ -63,7 +64,7 @@ export function Inbox({ session, close, open }: { session: Session; close: () =>
 
 type KeyState = "loading" | "locked" | "no-peer" | "ready";
 
-export function ChatWindow({ session, conv, close, onRead }: { session: Session; conv: Conversation; close: () => void; onRead: () => void }) {
+export function ChatWindow({ session, conv, close, onRead, viewProfile }: { session: Session; conv: Conversation; close: () => void; onRead: () => void; viewProfile: (t: ProfileTarget) => void }) {
   const myId = session.user.id;
   const isSeller = myId === conv.seller_id;
   const otherId = isSeller ? conv.buyer_id : conv.seller_id;
@@ -78,6 +79,10 @@ export function ChatWindow({ session, conv, close, onRead }: { session: Session;
   const [incomingHeld, setIncomingHeld] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
   const [loaded, setLoaded] = useState(false);
+  // Their reputation in this deal: as a seller if they're selling, else as a buyer.
+  const otherRole = isSeller ? "buyer" : "seller";
+  const [rating, setRating] = useState<Rating["asSeller"]>();
+  useEffect(() => { ratingSummary([otherId]).then(r => setRating(r[otherId]?.[otherRole === "seller" ? "asSeller" : "asBuyer"])).catch(() => undefined); }, [otherId, otherRole]);
 
   useEffect(() => {
     let cancelled = false;
@@ -160,7 +165,7 @@ export function ChatWindow({ session, conv, close, onRead }: { session: Session;
     <section className="chat-main">
       <header className="chat-head">
         <img src={safeImageUrl(conv.listing?.image ?? "")} alt="" />
-        <div><b>{conv.listing?.name ?? "Removed listing"}</b><small>{isSeller ? "Buyer" : "Seller"}: {name} · 🔒 End-to-end encrypted</small></div>
+        <div><b>{conv.listing?.name ?? "Removed listing"}</b><small>{isSeller ? "Buyer" : "Seller"}: <button className="example profile-link" onClick={() => viewProfile({ id: otherId, name, role: otherRole })} aria-label={`View ${name}’s profile`}>{name}</button> · <StarRating rating={rating} /></small><small>🔒 End-to-end encrypted</small></div>
         <button className="btn ghost block-btn" onClick={toggleBlock}>{blocked ? "Unblock" : "Block"}</button>
         <button className="close" onClick={stableClose} aria-label="Close">×</button>
       </header>
@@ -213,9 +218,10 @@ function HeldChat({ convId, myId, name, blocked }: { convId: string; myId: strin
 
 function Unlock({ session, done }: { session: Session; done: () => void }) {
   const [password, setPassword] = useState(""); const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
+  const [previousPassword,setPreviousPassword]=useState("");
   async function submit(e: FormEvent) {
     e.preventDefault(); setBusy(true); setError("");
-    try { await unlockChat(session.user.email ?? "", session.user.id, password); done(); }
+    try { await unlockChat(session.user.email ?? "", session.user.id, password,previousPassword); done(); }
     catch (err) { setError(err instanceof Error ? err.message : "Could not unlock chat."); }
     finally { setBusy(false); }
   }
@@ -223,6 +229,7 @@ function Unlock({ session, done }: { session: Session; done: () => void }) {
     <b>Unlock secure chat</b>
     <p className="muted">Your messages are encrypted with a key protected by your password. Enter it once to unlock chat on this device.</p>
     <label>Password<input type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" /></label>
+    <details><summary>Did you reset your password?</summary><p className="muted">If the chat backup still uses your previous password, enter it here to preserve your old messages and update the backup. Without it, those messages may remain locked.</p><label>Previous chat-backup password<input type="password" value={previousPassword} onChange={e=>setPreviousPassword(e.target.value)} autoComplete="off"/></label></details>
     {error && <p className="field-error" role="alert">{error}</p>}
     <button className="btn primary" disabled={busy || !password}>{busy ? "Unlocking…" : "Unlock chat"}</button>
   </form>;

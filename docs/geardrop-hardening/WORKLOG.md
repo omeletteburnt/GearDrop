@@ -658,3 +658,17 @@ Kept a `isLocalError` ref to distinguish "local validation message that should b
 **Self-review (OWASP-frame):** `security_report()` exposes usernames/admin email, so it's admin-only and not callable by anon. The skill never prints `admin.env`, masks key values, and sends no IPs to outside services. No service_role/secret key used.
 
 **Next action:** user regenerates the leaked TheKey.env key; user tests `/website-security-checking` in a new session.
+
+---
+
+## 2026-10-12 — Completion work and continuity update
+
+User confirmed the previously exposed provider API key was revoked. Current work
+and external setup are in `../geardrop-completion/{PLAN,WORKLOG,SETUP}.md`.
+Implemented star favourites, seller price/specification/status editing, persona
+personalization, password recovery with chat-backup preservation, and isolated
+test defaults/CI; retained and verified existing profile/chat/mascot changes.
+Verification: 111 unit tests and 34 mocked browser tests passed, TypeScript and
+production build passed. New SQL, real email delivery, live RLS/staging and
+deployment remain external follow-ups. No commit, push, deployment or production
+data cleanup was performed. Local server is running at http://localhost:5173.

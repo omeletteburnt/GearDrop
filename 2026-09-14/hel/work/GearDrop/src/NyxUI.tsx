@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useContext, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { Listing } from "./data";
 import type { Session } from "./supabase";
 import { NyxFace, type NyxMood } from "./NyxFace";
 import { countWords, murmurAt, murmurWords, revealWords } from "./murmur";
 import { askNyx, chatFromDoc, downloadChat, NYX_DAILY_LIMIT, nyxRemaining, sendNyxFeedback, splitAnswer, type NyxMode, type NyxTurn } from "./nyx";
+
+import { PreferenceContext } from "./useMarketplace";
 
 // **bold** inside a line, rendered as React text (never as HTML).
 function inline(text: string, key: string): ReactNode[] {
@@ -66,6 +68,7 @@ type Props = {
 // One Nyx conversation. The main panel can save/import it as a .doc file;
 // the listing and compare boxes use the same thread with their listings attached.
 export function NyxThread({ session, items, onOpen, requestSignIn, mode = "general", focusIds, label, placeholder, saveable, draft, onDraftUsed, heading }: Props) {
+  const preferences=useContext(PreferenceContext);
   const [turns, setTurns] = useState<NyxTurn[]>([]);
   const [input, setInput] = useState(""); const [busy, setBusy] = useState(false);
   const [error, setError] = useState(""); const [remaining, setRemaining] = useState<number | null>(null);
@@ -98,7 +101,7 @@ export function NyxThread({ session, items, onOpen, requestSignIn, mode = "gener
     const history = turns;
     setTurns([...history, { role: "user", text: question }]); setInput("");
     try {
-      const reply = await askNyx(question, { mode, items, focusIds, history });
+      const reply = await askNyx(question, { mode, items, focusIds, history, preferences });
       setTurns(t => [...t, { role: "nyx", text: reply.answer }]);
       if (reducedMotion()) setHappy(true); else setTyping({ index: history.length + 1, shown: 0 });
       if (reply.remaining !== null) setRemaining(reply.remaining);

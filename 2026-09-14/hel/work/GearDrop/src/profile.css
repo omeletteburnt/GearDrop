@@ -1,0 +1,14 @@
+/* Someone's public profile (from a chat or a listing's "Sold by") */
+.profile h2{margin-bottom:var(--sp-1)}
+.profile .rating-tabs{margin-bottom:var(--sp-2)}
+.profile-listings{list-style:none;margin:0;padding:0;display:grid;gap:var(--sp-2)}
+.profile-listings button{width:100%;display:grid;grid-template-columns:48px 1fr;gap:var(--sp-3);align-items:center;text-align:left;padding:var(--sp-2) var(--sp-3);background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-m);cursor:pointer}
+.profile-listings button:hover{border-color:var(--brass-ink)}
+.profile-listings button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.profile-listings img{width:48px;height:48px;object-fit:cover;border-radius:var(--radius-s)}
+.profile-listings span{display:grid;gap:2px;min-width:0}
+.profile-listings b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.profile-listings small{color:var(--text-soft);font-size:12.5px}
+.star-rating{white-space:nowrap}
+.star-rating small{color:var(--text-soft)}
+.chat-head .profile-link{padding:0;font-size:inherit;font-weight:600}

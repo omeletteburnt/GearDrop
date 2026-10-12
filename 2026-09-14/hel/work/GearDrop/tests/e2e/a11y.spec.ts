@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../offline/fixture";
 import { menu } from "./menu";
 
 // Automated accessibility audit (contrast, ARIA, focus, landmarks) against

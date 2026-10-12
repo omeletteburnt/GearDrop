@@ -16,7 +16,7 @@ alter table public.nyx_usage enable row level security;
 -- Questions you have left today (for the "x questions left" hint).
 create or replace function public.nyx_remaining()
 returns int language sql stable security definer set search_path = public as $$
-  select greatest(0, 20 - count(*)::int) from public.nyx_usage
+  select greatest(0, 15 - count(*)::int) from public.nyx_usage
    where user_id = auth.uid() and asked_at > now() - interval '24 hours';
 $$;
 revoke execute on function public.nyx_remaining() from public, anon;

@@ -1,3 +1,6 @@
+// @ts-ignore Shared runtime guard: direct test invocations must also be staging-only.
+import { assertStagingTarget } from "../../tools/test-target.mjs";
+assertStagingTarget(process.env);
 import { createClient } from "@supabase/supabase-js";
 import { beforeAll, describe, expect, it } from "vitest";
 import { toCatalog } from "../../src/nyx";
@@ -6,8 +9,8 @@ import { starterListings, type Listing } from "../../src/data";
 // Asks the REAL deployed Nyx (GitHub Models by default) and checks the answers are grounded in
 // the listings. Uses a few of the test account's daily questions, so it's
 // opt-in: NYX_LIVE=1 pnpm exec vitest run tests/integration/nyx-live.test.ts
-const URL = process.env.VITE_SUPABASE_URL ?? "https://vtulwvjjvgbrgxqzeemi.supabase.co";
-const KEY = process.env.VITE_SUPABASE_ANON_KEY ?? "sb_publishable_OvAuPane1gMMN-akEkx9Dg_IExgjo9u";
+const URL = process.env.VITE_SUPABASE_URL!;
+const KEY = process.env.VITE_SUPABASE_ANON_KEY!;
 const run = process.env.NYX_LIVE ? describe : describe.skip;
 const byId = new Map(starterListings.map(x => [x.id, x]));
 // Models use typographic characters (non-breaking spaces, ‑ hyphens, ’ quotes).

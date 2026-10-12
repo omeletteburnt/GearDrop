@@ -1,3 +1,6 @@
+// @ts-ignore Shared staging safety guard.
+import { assertStagingTarget } from "../../tools/test-target.mjs";
+assertStagingTarget(process.env);
 import { createClient } from "@supabase/supabase-js";
 import { testPhoto } from "../livePhoto";
 import { expect, test } from "@playwright/test";
@@ -8,8 +11,8 @@ import { expect, test } from "@playwright/test";
 // browser check, not just a claim that "React escapes JSX text" — it plants
 // a live listing with script/event-handler payloads, loads the real page,
 // and asserts nothing executed.
-const URL = process.env.VITE_SUPABASE_URL ?? "https://vtulwvjjvgbrgxqzeemi.supabase.co";
-const KEY = process.env.VITE_SUPABASE_ANON_KEY ?? "sb_publishable_OvAuPane1gMMN-akEkx9Dg_IExgjo9u";
+const URL = process.env.VITE_SUPABASE_URL!;
+const KEY = process.env.VITE_SUPABASE_ANON_KEY!;
 const suffix = Date.now();
 
 test("XSS payloads in listing fields render as inert text", async ({ page }) => {

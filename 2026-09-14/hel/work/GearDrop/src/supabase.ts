@@ -1,5 +1,7 @@
 import { createClient, type Session } from "@supabase/supabase-js";
 import type { Listing } from "./data";
+import type { ListingEdit } from "./listingEdits";
+import { validPreferences, type Preferences } from "./preferences";
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -107,6 +109,12 @@ export async function getUsername(userId: string): Promise<string | null> {
   return data?.username ?? null;
 }
 
+// Public profile basics: anyone can read a username and join date.
+export async function getProfile(userId: string): Promise<{ username: string; created_at: string } | null> {
+  const { data } = await supabase.from("profiles").select("username,created_at").eq("id", userId).maybeSingle();
+  return data ?? null;
+}
+
 // Sends a confirmation link to the new address; the email only changes once
 // it is clicked. Requires "Secure email change" to be OFF in Supabase Auth
 // settings, otherwise the (undeliverable) placeholder would also have to confirm.
@@ -180,6 +188,35 @@ export async function deleteListing(databaseId: number) {
   const { error, count } = await supabase.from("listings").delete({ count: "exact" }).eq("id", databaseId);
   if (error) throw new Error("Could not remove this listing.");
   if (!count) throw new Error("You don't have permission to remove this listing.");
+}
+
+export async function updateListing(item: Listing, patch: ListingEdit): Promise<Listing> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!item.databaseId || !user || item.ownerId !== user.id) throw new Error("Only the seller can edit this listing.");
+  const missing = item.missing.filter(m=>m!=="Key specifications");
+  if (!Object.keys(patch.specs).length) missing.push("Key specifications");
+  const { data, error } = await supabase.from("listings").update({ ...patch, missing }).eq("id", item.databaseId).eq("owner_id",user.id).select().single();
+  if (error || !data) throw new Error("Could not update this listing. Check your permissions and try again.");
+  return { ...item, ...data, id:item.id, databaseId:data.id, ownerId:data.owner_id, posted:item.posted };
+}
+
+export async function loadPreferences(userId: string): Promise<Preferences> {
+  const { data, error } = await supabase.from("user_preferences").select("persona,platform").eq("user_id",userId).maybeSingle();
+  if (error) throw new Error("Your saved preferences are temporarily unavailable. Please try again later.");
+  return validPreferences(data);
+}
+export async function savePreferences(userId: string, value: Preferences): Promise<void> {
+  const { error } = await supabase.from("user_preferences").upsert({ user_id:userId, ...validPreferences(value) });
+  if (error) throw new Error("Could not save your preferences. Please try again later.");
+}
+export async function loadFavorites(userId: string): Promise<string[]> {
+  const { data, error } = await supabase.from("favorites").select("listing_key").eq("user_id",userId);
+  if (error) throw new Error("Your saved favourites are temporarily unavailable. Please try again later.");
+  return (data??[]).map(x=>x.listing_key);
+}
+export async function saveFavorite(userId:string, listingKey:string, enabled:boolean):Promise<void>{
+  const result=enabled?await supabase.from("favorites").insert({user_id:userId,listing_key:listingKey}):await supabase.from("favorites").delete().eq("user_id",userId).eq("listing_key",listingKey);
+  if(result.error && !(enabled && result.error.code==="23505"))throw new Error("Could not save your favourite. Please try again later.");
 }
 
 export async function isAdmin(): Promise<boolean> {

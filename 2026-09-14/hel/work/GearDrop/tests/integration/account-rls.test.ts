@@ -1,9 +1,12 @@
+// @ts-ignore Shared runtime guard: direct test invocations must also be staging-only.
+import { assertStagingTarget } from "../../tools/test-target.mjs";
+assertStagingTarget(process.env);
 import { createClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 
 // Requires supabase-account-setup.sql. Skip with SKIP_RLS_INTEGRATION=1.
-const URL = process.env.VITE_SUPABASE_URL ?? "https://vtulwvjjvgbrgxqzeemi.supabase.co";
-const KEY = process.env.VITE_SUPABASE_ANON_KEY ?? "sb_publishable_OvAuPane1gMMN-akEkx9Dg_IExgjo9u";
+const URL = process.env.VITE_SUPABASE_URL!;
+const KEY = process.env.VITE_SUPABASE_ANON_KEY!;
 const run = process.env.SKIP_RLS_INTEGRATION ? describe.skip : describe;
 
 run("remove_my_email (live Supabase)", () => {

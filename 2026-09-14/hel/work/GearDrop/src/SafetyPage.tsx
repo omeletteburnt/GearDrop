@@ -26,6 +26,7 @@ const TIPS: [string, string[]][] = [
 
 const QA: [string, [string, string][]][] = [
   ["Buying & selling", [
+    ["How do I favourite listings?", "Simply click the star on the listing."],
     ["What should I check before buying?", "Read the full description, compare specifications, and look for the missing-information notice. Ask the seller about condition, accessories, faults, and proof that the item works before paying."],
     ["How can I list gear responsibly?", "Use your own photos and give an honest condition description. Include important details such as model, specifications, faults, included accessories, and whether the item has been tested."],
   ]],
@@ -35,11 +36,12 @@ const QA: [string, [string, string][]][] = [
   ]],
   ["Chats & privacy", [
     ["Are my GearDrop chats private?", "Yes. Messages, offers, photos, videos and PayNow details are end-to-end encrypted in your browser before they are sent, so only you and the other person can read them — not GearDrop, and not our database provider. What is not hidden: who you are chatting with, which listing it is about, and when messages were sent. Your chat key is protected by your password, so on a new device you will be asked for your password once to unlock older messages."],
-    ["What happens to my questions to Nyx?", "To answer, your question and the listings it needs are sent to our AI provider (Groq). GearDrop doesn't save your Nyx chats; it only records when you asked, to apply the 20-questions-a-day limit. If you rate an answer 👍 or 👎, that rating, your question and the answer are shared with GearDrop admins to improve Nyx. You can download your own chat as a file at any time."],
+    ["What happens if I forget my password?", "Use Forgot password on the sign-in screen if you previously added a real email. Accounts without a real email cannot use email recovery. If you still know your previous password, you can enter it during reset to preserve your encrypted chat backup. Without it, old messages may stay locked; GearDrop preserves the existing keys instead of replacing them."],
+    ["What happens to my questions to Nyx?", "To answer, your question and the listings it needs are sent to our AI provider (Groq). If you selected a gamer persona or platform, those choices are also sent to tailor the advice. GearDrop doesn't save your Nyx chats; it only records when you asked, to apply the 20-questions-a-day limit. If you rate an answer 👍 or 👎, that rating, your question and the answer are shared with GearDrop admins to improve Nyx. You can download your own chat as a file at any time."],
   ]],
   ["Staying safe", [
     ["How do I block someone?", "Open the conversation and tap Block in the top corner. Neither of you can send messages in that chat until you unblock them, which you can do from the same button."],
-    ["What should I do if something feels suspicious?", "Stop the conversation, do not send money or personal information, and leave the transaction. Block the user, then report that listing."],
+    ["What should I do if something feels suspicious?", "Stop the conversation, do not send money or personal information, and leave the transaction. Block the user and leave the transaction."],
   ]],
 ];
 

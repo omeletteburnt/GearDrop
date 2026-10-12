@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { decryptBytes, decryptMessage, deriveConversationKey, encryptBytes, encryptMessage, generateKeyMaterial, unwrapPrivateKey, wrapPrivateKey, type WrappedKey } from "./crypto";
+import { decryptBytes, decryptMessage, deriveConversationKey, encryptBytes, encryptMessage, generateKeyMaterial, importPrivateKey, unwrapPrivateKey, unwrapPrivateKeyBytes, wrapPrivateKey, type WrappedKey } from "./crypto";
 import { isPayload, SAFE_IMAGE_TYPES, SAFE_VIDEO_TYPES, type Payload } from "./deal";
 
 export const MAX_MEDIA_BYTES = 25 * 1024 * 1024;
@@ -48,6 +48,7 @@ export async function setupChatKeys(userId: string, password: string): Promise<v
     fetchPublicKey(userId),
     supabase.from("key_backups").select("wrapped_key,salt,iv").eq("user_id", userId).maybeSingle(),
   ]);
+  if (backupRes.error) throw new Error("Could not load your chat-key backup. Please try again.");
   if (local && published && sameJwk(local.publicJwk, published)) return;
   const backup = backupRes.data as WrappedKey | null;
   if (published && backup) {
@@ -56,6 +57,8 @@ export async function setupChatKeys(userId: string, password: string): Promise<v
     await putLocalKey(userId, { privateKey, publicJwk: published });
     return;
   }
+  // Never silently replace a published key: that would destroy access to old messages.
+  if (published || backup) throw new Error("Your chat-key setup is incomplete. Your existing keys have been preserved.");
   // First time (or a half-finished earlier setup): create a new pair. The
   // backup is written before the public key so a key is never published
   // without a way to restore it.
@@ -76,9 +79,23 @@ export async function hasChatKey(userId: string): Promise<boolean> {
 // For sessions restored without a password (e.g. reopening the tab): the
 // password is re-checked with Supabase before it is used for the key backup,
 // so a typo can never wrap a new key with the wrong password.
-export async function unlockChat(email: string, userId: string, password: string): Promise<void> {
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+export async function unlockChat(email: string, userId: string, password: string, previousPassword = ""): Promise<void> {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw new Error("Incorrect password.");
+  if(data.user.id!==userId)throw new Error("The account changed. Please reopen your chat.");
+  if(previousPassword){
+    const [published,res]=await Promise.all([fetchPublicKey(userId),supabase.from("key_backups").select("wrapped_key,salt,iv").eq("user_id",userId).maybeSingle()]);
+    if(res.error||!res.data||!published)throw new Error("Could not load your existing chat backup.");
+    let bytes:Uint8Array<ArrayBuffer>;
+    try{bytes=await unwrapPrivateKeyBytes(res.data as WrappedKey,previousPassword);}catch{throw new Error("The previous password could not unlock your chat backup.");}
+    try{
+      const wrapped=await wrapPrivateKey(bytes,password),privateKey=await importPrivateKey(bytes);
+      const {error}=await supabase.from("key_backups").upsert({user_id:userId,...wrapped});
+      if(error)throw new Error("Could not update your chat backup. The existing backup was preserved.");
+      await putLocalKey(userId,{privateKey,publicJwk:published});
+    }finally{bytes.fill(0);}
+    return;
+  }
   await setupChatKeys(userId, password);
 }
 

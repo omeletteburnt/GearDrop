@@ -7,9 +7,10 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test:unit": "vitest run",
-    "test:e2e": "playwright test",
-    "test": "pnpm test:unit && pnpm test:e2e"
+    "test:unit": "node tools/run-checks.mjs unit",
+    "test:e2e": "node tools/run-checks.mjs browser",
+    "test:staging": "node tools/run-checks.mjs staging",
+    "test": "node tools/run-checks.mjs all"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

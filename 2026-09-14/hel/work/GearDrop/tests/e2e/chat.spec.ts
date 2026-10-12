@@ -96,6 +96,7 @@ live("buyer and seller chat, negotiate, confirm, and share PayNow details", asyn
     await buyerChat.getByLabel("Message", { exact: true }).fill("Hi, is this still available?");
     await buyerChat.getByRole("button", { name: "Send", exact: true }).click();
     await expect(buyerChat.locator(".bubble.mine", { hasText: "Hi, is this still available?" })).toBeVisible();
+    await expect(buyerChat.locator(".chat-head")).toContainText(`Seller: ${seller.username} · No reviews yet`);
 
     // Seller sees the unread badge, opens the chat, and sends an offer.
     await expect(sellerPage.getByRole("button", { name: "Menu, 1 unread messages" })).toBeVisible({ timeout: 15_000 });
@@ -164,9 +165,25 @@ live("buyer and seller chat, negotiate, confirm, and share PayNow details", asyn
     await expect(card.locator(".card-rating")).toHaveText("★ 4.0 (1)", { timeout: 15_000 });
     await card.click();
     await buyerPage.getByRole("button", { name: /^Sold by/ }).click();
-    const reviewItem = buyerPage.locator(".review", { hasText: "Smooth deal" });
+    const profile = buyerPage.getByRole("dialog", { name: `${seller.username}’s profile` });
+    await expect(profile).toContainText("Member since");
+    await expect(profile.getByRole("tab", { name: /As seller/ })).toHaveAttribute("aria-selected", "true");
+    const reviewItem = profile.locator(".review", { hasText: "Smooth deal" });
     await expect(reviewItem).toContainText("Anonymous buyer");
     await expect(reviewItem).not.toContainText(buyer.username);
+    await expect(profile.locator(".profile-listings")).toContainText(listingName);
+
+    // In a chat, the header shows the seller's stars and the name opens the same profile.
+    await profile.getByRole("button", { name: "Close" }).click();
+    await buyerPage.getByRole("button", { name: `Message ${seller.username}` }).click();
+    const chatHead = buyerPage.locator(".chat-window .chat-head");
+    await expect(chatHead.getByRole("img", { name: "4 out of 5 stars" })).toBeVisible({ timeout: 15_000 });
+    await expect(chatHead).toContainText("4.0 (1 review)");
+    await chatHead.getByRole("button", { name: `View ${seller.username}’s profile` }).click();
+    await expect(profile.locator(".review", { hasText: "Smooth deal" })).toBeVisible();
+    await buyerPage.keyboard.press("Escape"); // closes only the profile, not the chat under it
+    await expect(profile).toHaveCount(0);
+    await expect(buyerPage.locator(".chat-window")).toBeVisible();
 
     // The seller replies publicly from Settings.
     await sellerPage.locator(".chat-window").getByRole("button", { name: "Close" }).click();

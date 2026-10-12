@@ -2,6 +2,13 @@
 
 Each item marked OPEN or RESOLVED (with resolution + date).
 
+## Current update (2026-10-12)
+
+- User confirmed the previously exposed API key was revoked. This resolves the TheKey.env provider-key revocation follow-up; it does not establish the status of the separately mentioned Supabase service-role key. Historical statements below describe the earlier sessions.
+- Default tests now use unit tests and mocked browser data; they do not create production users. CI is prepared for these checks. Live tests require an explicitly configured separate staging host and refuse the known production host.
+- No separate staging project is configured yet. Historical production test-data cleanup still needs a review in the dashboard before deleting anything.
+- Current feature/setup status is in `docs/geardrop-completion/`; older plan checkboxes are superseded where noted.
+
 ## OPEN
 
 12. **CI wiring decision.** `pnpm test` is fully green (30 tests: 20 Vitest + 10 Playwright) and covers unit, integration (live RLS), and E2E (including both critical flows named in the brief). It is deliberately NOT wired into any CI pipeline yet, because doing so would run the account-creating integration/E2E tests automatically and compound item #10 below every time CI runs. Needs the staging-project-or-service-role-key decision (#10) resolved first. — OPEN since 2026-09-16.

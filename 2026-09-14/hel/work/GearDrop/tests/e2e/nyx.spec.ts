@@ -24,12 +24,12 @@ async function mockNyx(page: Page, reply: (body: { question: string; mode: strin
     calls.push(body);
     await route.fulfill({ status, contentType: "application/json", body: JSON.stringify(reply(body)) });
   });
-  await page.route("**/rest/v1/rpc/nyx_remaining", route => route.fulfill({ status: 200, contentType: "application/json", body: "20" }));
+  await page.route("**/rest/v1/rpc/nyx_remaining", route => route.fulfill({ status: 200, contentType: "application/json", body: "15" }));
   return calls;
 }
 
 test("signed-out visitors are asked to sign in before using Nyx", async ({ page }) => {
-  const calls = await mockNyx(page, () => ({ answer: "hi", remaining: 19 }));
+  const calls = await mockNyx(page, () => ({ answer: "hi", remaining: 14 }));
   await page.goto("/");
   const nyx = page.locator("#nyx");
   await nyx.getByLabel("Ask Nyx anything").fill("best mouse?");
@@ -41,16 +41,16 @@ test("signed-out visitors are asked to sign in before using Nyx", async ({ page 
 
 test("Nyx answers with clickable listings, remembers the visit, and shows questions left", async ({ page }) => {
   const calls = await mockNyx(page, b => b.history.length
-    ? { answer: "Cheaper pick: **Keychron K2** [[listing:7]]", remaining: 18 }
-    : { answer: "Here's what fits your budget:\n- ASUS ROG Zephyrus G14 [[listing:5]] (demo listing)\n- Nothing else under $2000.", remaining: 19 });
+    ? { answer: "Cheaper pick: **Keychron K2** [[listing:7]]", remaining: 13 }
+    : { answer: "Here's what fits your budget:\n- ASUS ROG Zephyrus G14 [[listing:5]] (demo listing)\n- Nothing else under $2000.", remaining: 14 });
   await page.goto("/");
   await signUp(page, "a");
   const nyx = page.locator("#nyx");
-  await nyx.getByLabel("Ask Nyx anything").fill("I have $2000 for a gaming PC");
+  await nyx.getByLabel("Ask Nyx anything").fill("I have $2000 for a gaming laptop");
   await nyx.getByRole("button", { name: "Ask Nyx →" }).click();
   await expect(nyx.locator(".nyx-answer").first()).toContainText("Here's what fits your budget");
-  await expect(nyx.getByText("19 of 20 questions left today")).toBeVisible();
-  expect(calls[0]).toMatchObject({ mode: "general", question: "I have $2000 for a gaming PC" });
+  await expect(nyx.getByText("14 of 15 questions left today")).toBeVisible();
+  expect(calls[0]).toMatchObject({ mode: "general", question: "I have $2000 for a gaming laptop" });
   expect((calls[0].catalog as unknown[]).length).toBeGreaterThanOrEqual(22);
 
   // Follow-up sends the earlier turns.
@@ -65,7 +65,7 @@ test("Nyx answers with clickable listings, remembers the visit, and shows questi
 });
 
 test("download the chat as .doc, start over, then import it to continue", async ({ page }) => {
-  await mockNyx(page, () => ({ answer: "Go for a 1440p monitor.", remaining: 19 }));
+  await mockNyx(page, () => ({ answer: "Go for a 1440p monitor.", remaining: 14 }));
   await page.goto("/");
   await signUp(page, "d");
   const nyx = page.locator("#nyx");
@@ -91,7 +91,7 @@ test("download the chat as .doc, start over, then import it to continue", async 
 test("listing and compare boxes send their listings to Nyx; errors and the daily limit are shown", async ({ page }) => {
   let limitHit = false;
   const calls = await mockNyx(page, b => limitHit
-    ? { error: "You've used all 20 Nyx questions for today. Try again tomorrow!", remaining: 0 }
+    ? { error: "You've used all 15 Nyx questions for today. Try again tomorrow!", remaining: 0 }
     : { answer: b.mode === "compare" ? "The Superlight is lighter." : "Yes, great for FPS.", remaining: 5 });
   await page.goto("/");
   await signUp(page, "c");
@@ -115,10 +115,10 @@ test("listing and compare boxes send their listings to Nyx; errors and the daily
   // Daily limit reached: friendly message, question kept for later, button disabled.
   await page.unroute("**/functions/v1/nyx");
   limitHit = true;
-  await page.route("**/functions/v1/nyx", route => route.fulfill({ status: 429, contentType: "application/json", body: JSON.stringify({ error: "You've used all 20 Nyx questions for today. Try again tomorrow!", remaining: 0 }) }));
+  await page.route("**/functions/v1/nyx", route => route.fulfill({ status: 429, contentType: "application/json", body: JSON.stringify({ error: "You've used all 15 Nyx questions for today. Try again tomorrow!", remaining: 0 }) }));
   await aside.getByLabel("Your question").fill("One more?");
   await aside.getByRole("button", { name: "Ask Nyx →" }).click();
-  await expect(aside.getByRole("alert")).toHaveText("You've used all 20 Nyx questions for today. Try again tomorrow!");
+  await expect(aside.getByRole("alert")).toHaveText("You've used all 15 Nyx questions for today. Try again tomorrow!");
   await expect(aside.getByLabel("Your question")).toHaveValue("One more?");
   await expect(aside.getByText("No questions left today")).toBeVisible();
   await expect(aside.getByRole("button", { name: "Ask Nyx →" })).toBeDisabled();

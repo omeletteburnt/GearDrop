@@ -5,12 +5,15 @@
 //   AI_API_KEY    API key for an OpenAI-compatible provider (Groq: gsk_...)
 //   AI_BASE_URL   optional, defaults to https://api.groq.com/openai/v1
 //   AI_MODEL      optional, defaults to openai/gpt-oss-120b
+//   AI_VISION_MODEL  optional, defaults to qwen/qwen3.8-27b on Groq;
+//                    "none" disables photos. Uses the same API key/base URL.
 //   AI_FALLBACK_MODEL  optional, used when the main model is rate-limited;
 //                 defaults to openai/gpt-oss-20b ("none" to disable)
 // SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY are provided
 // automatically. Keep "Verify JWT" ON: only signed-in users can ask.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { cleanCitations, DAILY_LIMIT, getListing, MAX_CATALOG, MAX_TEXT, mergeCatalog, sanitizeCatalog, sanitizeHistory, searchListings, systemPrompt, TOOLS, type Mode, type SearchArgs } from "./logic.ts";
+import { cleanCitations, DAILY_LIMIT, getListing, MAX_CATALOG, MAX_TEXT, mergeCatalog, requestedDeviceType, sanitizeCatalog, sanitizeHistory, searchListings, systemPrompt, textDeviceType, TOOLS, type CatalogItem, type Mode, type SearchArgs } from "./logic.ts";
+import { createPhotoInspector, MAX_PHOTO_LISTINGS } from "./vision.ts";
 
 const env = (k: string) => Deno.env.get(k) ?? "";
 const MAX_BODY_BYTES = 300_000;
@@ -32,11 +35,25 @@ type Message =
   | { role: "assistant"; content: string | null; tool_calls?: ToolCall[] }
   | { role: "tool"; tool_call_id: string; content: string };
 
-function runTool(catalog: ReturnType<typeof sanitizeCatalog>, call: ToolCall): unknown {
+async function runTool(catalog: ReturnType<typeof sanitizeCatalog>, call: ToolCall, inspect: ReturnType<typeof createPhotoInspector>, deviceType: SearchArgs["device_type"]): Promise<unknown> {
   let args: Record<string, unknown> = {};
   try { args = JSON.parse(call.function.arguments || "{}"); } catch { return { error: "Invalid arguments" }; }
-  if (call.function.name === "search_listings") return searchListings(catalog, args as SearchArgs);
-  if (call.function.name === "get_listing") return getListing(catalog, Number(args.id));
+  if (call.function.name === "search_listings") {
+    const search = args as SearchArgs;
+    // Enforce the user's requested subtype even when the text model omits it.
+    const type = deviceType ?? search.device_type;
+    const pool = type ? catalog.filter(item => { const kind = textDeviceType(item); return kind === type || kind === "unknown"; }) : catalog;
+    const candidates = searchListings(pool, { ...search, device_type: undefined, ...(type ? { category: "PC/Laptops" } : {}) }).results.slice(0, MAX_PHOTO_LISTINGS);
+    const items = candidates.map(c => catalog.find(x => x.id === c.id)!);
+    await Promise.all(items.map(async item => { item.photoAssessment = await inspect(item); }));
+    return { ...searchListings(items, { ...search, ...(type ? { category: "PC/Laptops", device_type: type } : {}) }),
+      coverage: "Only these candidate listings were examined, not the entire marketplace. Unavailable analysis uses listing text, not visual verification." };
+  }
+  if (call.function.name === "get_listing") {
+    const item = getListing(catalog, Number(args.id));
+    if ("id" in item) item.photoAssessment = await inspect(item);
+    return item;
+  }
   return { error: "Unknown tool" };
 }
 
@@ -61,12 +78,14 @@ Deno.serve(async req => {
   if (!question) return json({ error: "Type a question for Nyx." }, 400);
   const mode: Mode = body?.mode === "listing" || body?.mode === "compare" ? body.mode : "general";
   const admin = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
-  const { data: dbListings, error: listingsError } = await admin.from("listings")
-    .select("id,name,category,price,condition,status,description,specs,missing,seller")
-    .order("created_at", { ascending: false }).limit(MAX_CATALOG);
+  const listingColumns = "id,name,category,price,condition,status,description,specs,missing,seller,image";
+  const loadListings = (columns: string) => admin.from("listings").select(columns).order("created_at", { ascending: false }).limit(MAX_CATALOG);
+  let { data: dbListings, error: listingsError } = await loadListings(`${listingColumns},photos`);
+  if (listingsError?.code === "42703" || listingsError?.code === "PGRST204") ({ data: dbListings, error: listingsError } = await loadListings(listingColumns));
   if (listingsError) console.error("Listings load failed", listingsError);
   const catalog = mergeCatalog(dbListings ?? [], body?.catalog);
-  const focus = (Array.isArray(body?.focusIds) ? body.focusIds as unknown[] : []).slice(0, 2).map((id: unknown) => catalog.find(x => x.id === Number(id))).filter(Boolean);
+  if (listingsError) return json({ error: "Nyx couldn't load listings. Please try again later." }, 503);
+  const focus = (Array.isArray(body?.focusIds) ? body.focusIds as unknown[] : []).slice(0, 2).map((id: unknown) => catalog.find(x => x.id === Number(id))).filter((item): item is CatalogItem => item !== undefined);
   const history = sanitizeHistory(body?.history);
 
   // Daily limit, counted server-side. The usage row is written before calling
@@ -85,13 +104,16 @@ Deno.serve(async req => {
     return json({ error: "Nyx is being set up. Please try again later." }, 503);
   }
   const remaining = Math.max(0, DAILY_LIMIT - count - 1);
+  const baseUrl = (env("AI_BASE_URL") || "https://api.groq.com/openai/v1").replace(/\/+$/, "");
+  const configuredVision = env("AI_VISION_MODEL") || (baseUrl === "https://api.groq.com/openai/v1" ? "qwen/qwen3.8-27b" : "");
+  const inspect = createPhotoInspector({ baseUrl, apiKey: env("AI_API_KEY"), model: configuredVision === "none" ? "" : configuredVision, supabaseUrl: env("SUPABASE_URL") });
+  await Promise.all(focus.map(async item => { item.photoAssessment = await inspect(item); }));
 
   const messages: Message[] = [
-    { role: "system", content: systemPrompt(mode, focus) },
+    { role: "system", content: systemPrompt(mode, focus, body?.persona, body?.platform) },
     ...history.map((t): Message => t.role === "user" ? { role: "user", content: t.text } : { role: "assistant", content: t.text }),
     { role: "user", content: question },
   ];
-  const baseUrl = (env("AI_BASE_URL") || "https://api.groq.com/openai/v1").replace(/\/+$/, "");
   const fallback = env("AI_FALLBACK_MODEL") || "openai/gpt-oss-20b";
   // If the main model is rate-limited (free tiers have small per-minute
   // caps), the rest of the question is answered by the fallback model.
@@ -131,7 +153,7 @@ Deno.serve(async req => {
         return json({ answer: cleanCitations(answer, catalog), remaining });
       }
       messages.push({ role: "assistant", content: msg.content ?? null, tool_calls: calls });
-      for (const call of calls) messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(runTool(catalog, call)) });
+      for (const call of calls) messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(await runTool(catalog, call, inspect, requestedDeviceType(question))) });
     }
     return json({ error: "Nyx got stuck on that one. Try a simpler question.", remaining }, 502);
   } catch (e) {

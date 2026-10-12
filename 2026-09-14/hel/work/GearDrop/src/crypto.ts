@@ -59,9 +59,14 @@ export async function wrapPrivateKey(pkcs8: Uint8Array<ArrayBuffer>, password: s
 
 // Throws if the password is wrong (AES-GCM authentication fails).
 export async function unwrapPrivateKey(backup: WrappedKey, password: string): Promise<CryptoKey> {
+  return importPrivateKey(await unwrapPrivateKeyBytes(backup,password));
+}
+
+// Only used during an explicit password change to rewrap the same key.
+export async function unwrapPrivateKeyBytes(backup: WrappedKey, password: string): Promise<Uint8Array<ArrayBuffer>> {
   const key = await passwordKey(password, fromBase64(backup.salt));
   const pkcs8 = new Uint8Array(await subtle.decrypt({ name: "AES-GCM", iv: fromBase64(backup.iv) }, key, fromBase64(backup.wrapped_key)));
-  return importPrivateKey(pkcs8);
+  return pkcs8;
 }
 
 export async function deriveConversationKey(myPrivateKey: CryptoKey, theirPublicJwk: JsonWebKey, conversationId: string): Promise<CryptoKey> {

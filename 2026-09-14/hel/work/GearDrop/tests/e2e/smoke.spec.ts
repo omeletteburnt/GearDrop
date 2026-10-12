@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../offline/fixture";
 
 // Baseline smoke test proving the E2E harness itself works end to end
 // (dev server boot, page load, core landmarks render). The two critical

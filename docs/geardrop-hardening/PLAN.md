@@ -1,3 +1,7 @@
+# Current status (2026-10-12)
+
+The audit below is a historical execution record. See `../geardrop-completion/PLAN.md` and `SETUP.md` for current implementation and external setup. The leaked provider API key has been revoked (user confirmed). The delete-result check is implemented, design rollout is complete, and default tests/CI no longer write to production. Separate staging setup and production test-data review remain pending.
+
 # GearDrop Hardening — Execution Plan
 
 Status markers: `[ ]` pending · `[~]` in progress · `[x]` done (date) · `[!]` blocked: reason
@@ -50,7 +54,7 @@ App root for all file paths below: `2026-09-14/hel/work/GearDrop/` unless noted 
 - [x] (2026-09-16) **2.2 Anon-key verification queries.** Ran live against production Supabase (with user approval to create disposable test data): anon SELECT listings/profiles allowed; anon INSERT rejected (401); anon DELETE and cross-user DELETE on a real owned listing both correctly matched 0 rows (RLS-filtered, listing persisted — verified via before/after read, not just HTTP status since PostgREST returns 204 either way); owner DELETE succeeded and actually removed the row. **Matches the SQL as written.** To be turned into a proper Vitest integration test in Phase 7/11 rather than ad-hoc curl. **Action needed from user**: delete leftover test accounts `rlstest_temp_a@nyx.local` / `rlstest_temp_b@nyx.local` via Supabase dashboard (Authentication → Users) — no service-role key available here to clean them up.
 - [x] (2026-09-16) **2.3 Audit `is_admin()` and grants.** Drift found: the function is callable by `anon` because Postgres grants `EXECUTE` to `PUBLIC` by default and `supabase-admin-setup.sql` never revokes it. Not exploitable today (anon has no `auth.uid()`, always gets `false`), but violates least privilege. **Fix queued for Phase 1/6 SQL patch**: `revoke execute on function public.is_admin() from public, anon;`
 - [ ] **2.1 (optional/low-priority) Full `pg_policies` text diff** — behavior is already verified empirically above; only needed if the user wants a literal policy-definition diff too.
-- [ ] **2.4 (new) Fix silent no-op delete UX/security gap.** `deleteListing()` in `src/supabase.ts` treats any `r.ok` (204) as success — but RLS-blocked deletes also return 204 with 0 rows affected, so a crafted direct API call (bypassing the UI's `canDelete` gate) would get a false "success" response with no actual effect. Not exploitable through the shipped UI today (delete button is gated client-side and the real check is server-side RLS, so no data is actually at risk), but the client should use `Prefer: count=exact` and check the affected-count header, or re-verify, so error handling is accurate. Ties into Phase 3.2 (error handling cleanup).
+- [x] **2.4 Fix silent no-op delete UX/security gap (implemented in current code).** `deleteListing()` in `src/supabase.ts` treats any `r.ok` (204) as success — but RLS-blocked deletes also return 204 with 0 rows affected, so a crafted direct API call (bypassing the UI's `canDelete` gate) would get a false "success" response with no actual effect. Not exploitable through the shipped UI today (delete button is gated client-side and the real check is server-side RLS, so no data is actually at risk), but the client should use `Prefer: count=exact` and check the affected-count header, or re-verify, so error handling is accurate. Ties into Phase 3.2 (error handling cleanup).
 
 ## Phase 3 — Session & auth hardening — [x] DONE (2026-09-16)
 
@@ -118,7 +122,7 @@ User confirmed (2026-09-16): no real AI-backed Nyx feature exists or is planned.
 
 ## Phase 8 — Design tokens & reference screen (approval gate)
 
-- [ ] **8.1 Propose token set** (palette, type scale, spacing, radii, shadows, motion durations) and **one redesigned reference screen** (home hero + product card + detail modal) for approval before any further UI work.
+- [x] **8.1 Propose token set (completed; see WORKLOG Phase 8)** (palette, type scale, spacing, radii, shadows, motion durations) and **one redesigned reference screen** (home hero + product card + detail modal) for approval before any further UI work.
 
 ## Phase 9 — Design system rollout (post-approval, screen by screen)
 
@@ -170,4 +174,4 @@ User confirmed (2026-09-16): no real AI-backed Nyx feature exists or is planned.
 
 ---
 
-Plan awaiting your approval before any Phase 1+ code changes begin (Phase 0 is done — this document).
+Historical approval gate: subsequent phases were approved and implemented; see WORKLOG.

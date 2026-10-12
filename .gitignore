@@ -6,3 +6,8 @@ dist/
 *.tsbuildinfo
 .DS_Store
 .idea/
+test-results/
+playwright-report/
+shots/
+GearDrop-backup.git/
+GearDrop-clean/

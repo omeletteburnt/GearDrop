@@ -3,12 +3,12 @@ import type { Session } from "./supabase";
 
 type Props = {
   session: Session | null; unread: number;
-  onSignIn: () => void; onMessages: () => void; onSettings: () => void; onLogout: () => void;
+  onSignIn: () => void; onMessages: () => void; onProfile: () => void; onSettings: () => void; onLogout: () => void;
 };
 
 // The ☰ menu left of the logo: account, messages, settings and safety live here
 // so the top bar stays uncluttered. Closes on pick, outside click or Esc.
-export function NavMenu({ session, unread, onSignIn, onMessages, onSettings, onLogout }: Props) {
+export function NavMenu({ session, unread, onSignIn, onMessages, onProfile, onSettings, onLogout }: Props) {
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -37,6 +37,7 @@ export function NavMenu({ session, unread, onSignIn, onMessages, onSettings, onL
       {session && <button type="button" onClick={pick(onMessages)} aria-label={unread ? `Messages, ${unread} unread` : "Messages"}>
         Messages{unread > 0 && <span className="unread-badge" aria-hidden="true">{unread}</span>}
       </button>}
+      {session && <button type="button" onClick={pick(onProfile)}>My profile</button>}
       {session && <button type="button" onClick={pick(onSettings)}>Settings</button>}
       <a href="#privacy-safety-questions" onClick={() => close()}>Privacy &amp; Safety</a>
       {session && (confirming

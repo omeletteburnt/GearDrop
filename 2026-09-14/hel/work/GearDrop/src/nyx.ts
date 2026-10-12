@@ -1,22 +1,24 @@
 import { supabase } from "./supabase";
 import type { Listing } from "./data";
 
+import type { Preferences } from "./preferences";
+
 export type NyxTurn = { role: "user" | "nyx"; text: string };
 export type NyxMode = "general" | "listing" | "compare";
-export const NYX_DAILY_LIMIT = 20;
+export const NYX_DAILY_LIMIT = 15;
 export const MAX_IMPORTED_TURNS = 40;
 
 // The listings currently on the page, in the compact shape the Edge Function
 // expects. Demo (starter) listings are included but flagged.
 export function toCatalog(items: Listing[]) {
-  return items.map(x => ({ id: x.id, name: x.name, category: x.category, price: x.price, condition: x.condition, status: x.status, description: x.description, specs: x.specs, missing: x.missing, seller: x.seller, demo: !x.databaseId }));
+  return items.map(x => ({ id: x.id, name: x.name, category: x.category, price: x.price, condition: x.condition, status: x.status, description: x.description, specs: x.specs, missing: x.missing, seller: x.seller, demo: !x.databaseId, image: x.image, photos: x.photos }));
 }
 
 export type NyxReply = { answer: string; remaining: number | null };
 
-export async function askNyx(question: string, opts: { mode: NyxMode; items: Listing[]; focusIds?: number[]; history?: NyxTurn[] }): Promise<NyxReply> {
+export async function askNyx(question: string, opts: { mode: NyxMode; items: Listing[]; focusIds?: number[]; history?: NyxTurn[]; preferences?: Preferences }): Promise<NyxReply> {
   const { data, error } = await supabase.functions.invoke("nyx", {
-    body: { question, mode: opts.mode, focusIds: opts.focusIds ?? [], history: opts.history ?? [], catalog: toCatalog(opts.items) },
+    body: { question, mode: opts.mode, focusIds: opts.focusIds ?? [], history: opts.history ?? [], catalog: toCatalog(opts.items), persona:opts.preferences?.persona, platform:opts.preferences?.platform },
   });
   if (error) {
     // Non-2xx responses carry a friendly { error, remaining } body.

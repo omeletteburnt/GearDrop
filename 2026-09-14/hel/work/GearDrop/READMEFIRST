@@ -1,0 +1,73 @@
+# Work left to continue
+
+Updated: 2026-10-12.
+Active app: D:\DPP-ITE\Internship\Geardrop\2026-09-14\hel\work\GearDrop.
+
+## Completed locally
+
+- Star favourites, owner-only price/specification/status editing, personalization,
+  public profiles, a separate private My profile menu, compact Settings, password
+  change/email recovery and encrypted-chat backup preservation.
+- Requested favourite Q&A added and guest-favourites/admin implementation notes removed.
+- Nyx desktop/laptop matching, bounded Groq photo analysis through the existing
+  provider/key, and a 15-question rolling 24-hour allowance implemented locally.
+- Offline tests and guarded staging configuration prepared. Latest checks:
+  120 unit tests and 37 mocked browser tests passed; TypeScript and build passed.
+- Root AGENTS.md now includes the third-priority READMEFIRST check and last-priority
+  handoff rule.
+
+## Unfinished tasks and next steps
+
+1. Apply `supabase-preferences-setup.sql` in the existing Supabase SQL Editor,
+   then refresh localhost and verify signed-in preferences/favourites persist.
+   The last read-only check found both user_preferences and favorites missing
+   (HTTP 404 / PGRST205). No SQL has been applied here; first check whether the
+   user has since completed this step.
+2. Activate Nyx changes: deploy the complete `supabase/functions/nyx/` folder,
+   including vision.ts, and run `supabase-nyx-limit-update.sql` in SQL Editor.
+   Existing Groq key/base URL are reused; Groq vision defaults to qwen/qwen3.8-27b.
+   AI_VISION_MODEL can override this, or "none" disables photos. No deployment
+   or live Groq call has been performed. Obtain deployment authorization first.
+3. Verify actual Nyx photo accuracy with desktop requests (including a $5000 PC),
+   laptop requests, unclear/contradictory photos and unavailable analysis. Verify
+   the 15-question server allowance and display agree. Offline tests do not prove
+   real photo accuracy. Photo checks consume additional Groq usage: at most six
+   listings, up to two photos each, per question, cached within that question.
+4. Verify recovery email delivery/SMTP and allow these Supabase Auth redirect URLs:
+   http://localhost:5173/#reset-password and
+   https://gear-drop-4xza.vercel.app/#reset-password.
+   Test recovery/password changes and chat-backup preservation with an account
+   the user owns. Actual email delivery has not been verified.
+5. Publish the updated frontend when explicitly authorized. The user authorized
+   a local commit on 2026-10-12; push and deployment remain unperformed.
+   Localhost calls the deployed Supabase function,
+   so local frontend changes alone do not activate the new Nyx behavior.
+6. Configure a separate Supabase staging project/branch before running live RLS,
+   integration and email tests. No staging project is configured. Verify private
+   preferences/favourites and owner-only listing updates with different accounts.
+   Prepared CI is included with the local changes but has not run on GitHub.
+7. Review historical production test records in the dashboard before any cleanup.
+   No production records were deleted. Any deletion requires authorization.
+8. Establish the status of the separately documented historical Supabase
+   service-role key. The user confirmed the exposed provider API key was revoked;
+   that confirmation does not establish service-role key status. Historical
+   revoked-key content remains in Git; history rewriting is optional and requires
+   separate authorization.
+
+## Continuity and boundaries
+
+- Read root AGENTS.md and preserve all pre-existing working-tree changes.
+- Local preview was running at http://localhost:5173. Verify it is still running
+  before promising availability. It uses the existing production Supabase project;
+  manual listing writes affect real data.
+- No new dependencies, .env changes, commits, pushes or deployments without the
+  applicable authorization. No reporting controls were requested.
+- Detailed instructions: docs/geardrop-completion/SETUP.md, NYX-VISION.md,
+  PLAN.md and WORKLOG.md (paths relative to the repository root).
+- From the active app: `node tools/run-checks.mjs all`,
+  `node node_modules/typescript/bin/tsc --noEmit`,
+  `node node_modules/vite/bin/vite.js build`.
+  Existing Analytics and bundle-size build warnings remain.
+
+When all required work above is completed, replace this file's contents with
+exactly: Nothing to continue

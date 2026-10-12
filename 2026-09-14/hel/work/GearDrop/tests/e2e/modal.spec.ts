@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../offline/fixture";
 
 test.describe("detail sheet accessibility", () => {
   test("locks body scroll, traps focus, and closes on Escape", async ({ page }) => {

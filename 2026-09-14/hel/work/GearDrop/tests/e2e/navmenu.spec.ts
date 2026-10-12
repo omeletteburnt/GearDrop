@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../offline/fixture";
 
 // The ☰ menu (logged out): what's in it, how it closes, and an axe pass while open.
 test.use({ reducedMotion: "reduce" });

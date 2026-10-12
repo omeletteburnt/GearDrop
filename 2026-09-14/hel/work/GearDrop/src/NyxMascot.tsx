@@ -184,8 +184,10 @@ export function NyxMascot({ greet }: { greet: boolean }) {
       const el = spot.current; if (!el || busy.current) return;
       const r = el.getBoundingClientRect();
       if (r.bottom < NAV || r.top > innerHeight) return; // not on screen
-      const sec = el.closest("main > .stack")?.getBoundingClientRect(); // only for a cursor inside his section
-      if (!sec || cx < sec.left || cx > sec.right || cy < Math.max(sec.top, NAV) || cy > sec.bottom) return;
+      // Only for a cursor over his own section: check what's actually under it, since the
+      // next section (or the top bar, or a popup) can cover his while it stays pinned.
+      const sec = el.closest("main > .stack");
+      if (!sec || document.elementFromPoint(cx, cy)?.closest("main > .stack") !== sec) return;
       const mx = r.left + r.width / 2, my = r.top + r.height / 2, rad = r.width * .46;
       const to = reachArms(mx, my, rad, cx, cy); if (!to) return;
       setArms({ pair: to, cx: mx, cy: my, r: r.width / 2 + 10 }); reaching = true;

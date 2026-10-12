@@ -1,3 +1,6 @@
+// @ts-ignore Shared runtime guard: direct test invocations must also be staging-only.
+import { assertStagingTarget } from "../../tools/test-target.mjs";
+assertStagingTarget(process.env);
 import { testPhoto } from "../livePhoto";
 import { createClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -6,8 +9,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 // (Vite bakes VITE_-prefixed vars into the client build, so they carry no
 // confidentiality — RLS, not secrecy, is what protects the data behind them).
 // Override via env vars if the project URL/key ever changes.
-const URL = process.env.VITE_SUPABASE_URL ?? "https://vtulwvjjvgbrgxqzeemi.supabase.co";
-const KEY = process.env.VITE_SUPABASE_ANON_KEY ?? "sb_publishable_OvAuPane1gMMN-akEkx9Dg_IExgjo9u";
+const URL = process.env.VITE_SUPABASE_URL!;
+const KEY = process.env.VITE_SUPABASE_ANON_KEY!;
 
 const run = process.env.SKIP_RLS_INTEGRATION ? describe.skip : describe;
 const suffix = Date.now();

@@ -9,15 +9,15 @@ test("sign up without an email, sign back in with the username, and see 'No emai
   await menu(page, "Sign in / Sign up");
   const auth = page.locator('[role="dialog"]').first();
   await auth.getByRole("button", { name: "Need an account? Sign up" }).click();
-  await expect(auth.getByText("You can add one later in Settings.")).toBeVisible();
+  await expect(auth.getByText("You can add one later in My profile.")).toBeVisible();
   await auth.locator('input[name="identifier"]').fill(username);
   await auth.locator('input[name="password"]').fill("TempPass123!");
   await auth.getByRole("button", { name: "Create account" }).click();
   await expect(auth).toHaveCount(0, { timeout: 15_000 });
 
   // Settings shows the username and that no email has been added.
-  await menu(page, "Settings");
-  const settings = page.getByRole("dialog", { name: "Account settings" });
+  await menu(page, "My profile");
+  const settings = page.getByRole("dialog", { name: "My profile" });
   await expect(settings.locator(".settings-list")).toContainText(username);
   await expect(settings.getByText("No email added")).toBeVisible();
   await expect(settings).not.toContainText("nyx.local");
@@ -69,8 +69,8 @@ test("Remove email asks for confirmation and explains the link step", async ({ p
   await auth.getByRole("button", { name: "Create account" }).click();
   await expect(auth).toHaveCount(0, { timeout: 15_000 });
 
-  await menu(page, "Settings");
-  const settings = page.getByRole("dialog", { name: "Account settings" });
+  await menu(page, "My profile");
+  const settings = page.getByRole("dialog", { name: "My profile" });
   await expect(settings.locator(".settings-list")).toContainText(`${username}@example.com`);
   await settings.getByRole("button", { name: "Remove email" }).click();
   await expect(settings.getByText("you can’t recover your account")).toBeVisible();

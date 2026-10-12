@@ -1,0 +1,54 @@
+name: GearDrop checks
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+    inputs:
+      staging:
+        description: Run database checks against a dedicated staging project
+        type: boolean
+        default: false
+permissions:
+  contents: read
+defaults:
+  run:
+    working-directory: 2026-09-14/hel/work/GearDrop
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: 2026-09-14/hel/work/GearDrop/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm build
+      - run: pnpm test
+  staging:
+    if: github.event_name == 'workflow_dispatch' && inputs.staging
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      GEARDROP_STAGING_TESTS: '1'
+      GEARDROP_STAGING_HOST: ${{ vars.GEARDROP_STAGING_HOST }}
+      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: 2026-09-14/hel/work/GearDrop/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:staging

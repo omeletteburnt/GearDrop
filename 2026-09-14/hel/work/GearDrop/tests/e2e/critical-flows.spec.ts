@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../offline/fixture";
 import { menu, logOut, expectSignedIn } from "./menu";
 import { png } from "./png";
 
@@ -35,7 +35,7 @@ test("browse -> detail -> compare two models in the same category", async ({ pag
 test("sign-up shows clear validation errors instead of silently doing nothing", async ({ page }) => {
   await page.goto("/");
   await menu(page, "Sign in / Sign up");
-  const authDialog = page.locator('[role="dialog"]').first();
+  const authDialog = page.getByRole('dialog', { name: /^(Sign in|Create account)$/ });
   await authDialog.getByRole("button", { name: "Need an account? Sign up" }).click();
 
   // A too-short password used to be silently blocked by the native minLength
@@ -65,7 +65,7 @@ test("stale error clears even when the field changes with zero JS events", async
   // animation event whatsoever — and confirm the stale error still clears.
   await page.goto("/");
   await menu(page, "Sign in / Sign up");
-  const authDialog = page.locator('[role="dialog"]').first();
+  const authDialog = page.getByRole('dialog', { name: /^(Sign in|Create account)$/ });
   await authDialog.getByRole("button", { name: "Need an account? Sign up" }).click();
   await authDialog.locator('input[name="identifier"]').fill(`autofilltest_${suffix}`);
   await authDialog.locator('input[name="email"]').fill(`autofilltest_${suffix}@example.com`);
@@ -87,13 +87,14 @@ test("sign-up -> create a listing -> delete it", async ({ page }) => {
 
   await page.goto("/");
   await menu(page, "Sign in / Sign up");
-  const authDialog = page.locator('[role="dialog"]').first();
+  const authDialog = page.getByRole('dialog', { name: /^(Sign in|Create account)$/ });
   await authDialog.getByRole("button", { name: "Need an account? Sign up" }).click();
   await authDialog.locator('input[name="identifier"]').fill(username);
   await authDialog.locator('input[name="email"]').fill(`${username}@example.com`);
   await authDialog.locator('input[name="password"]').fill("TempPass123!");
   await authDialog.getByRole("button", { name: "Create account" }).click();
   await expect(authDialog).toHaveCount(0, { timeout: 10000 });
+  await page.getByRole("button", { name: "Skip for now" }).click();
 
   await page.getByRole("button", { name: "+ Sell gear" }).click();
   const sellDialog = page.locator('[role="dialog"]').first();
@@ -114,7 +115,7 @@ test("sign-up -> create a listing -> delete it", async ({ page }) => {
   await newCard.click();
   const photoUrl = await page.locator(".gallery>img").getAttribute("src");
   expect(photoUrl).toContain("/storage/v1/object/public/listing-photos/"); // the uploaded photo is the cover
-  expect((await page.request.get(photoUrl!)).status()).toBe(200);
+  expect(await page.evaluate(async url=>(await fetch(url)).status,photoUrl!)).toBe(200);
 
   const detail = page.locator('[role="dialog"]').first();
   await detail.getByRole("button", { name: "Delete listing" }).click();
@@ -123,7 +124,7 @@ test("sign-up -> create a listing -> delete it", async ({ page }) => {
 
   await expect(page.locator(".card", { hasText: listingName })).toHaveCount(0);
   await expect(page.locator(".toast")).toHaveText(/removed/i);
-  await expect.poll(async () => (await page.request.get(`${photoUrl}?gone=${Date.now()}`)).status(), { timeout: 10000 }).not.toBe(200); // photo deleted too
+  await expect.poll(async () => page.evaluate(async url=>(await fetch(url)).status,`${photoUrl}?gone=${Date.now()}`), { timeout: 10000 }).not.toBe(200); // photo deleted too
 });
 
 test("sign up with a real email, then sign back in using that email", async ({ page }) => {
@@ -132,13 +133,14 @@ test("sign up with a real email, then sign back in using that email", async ({ p
 
   await page.goto("/");
   await menu(page, "Sign in / Sign up");
-  const authDialog = page.locator('[role="dialog"]').first();
+  const authDialog = page.getByRole('dialog', { name: /^(Sign in|Create account)$/ });
   await authDialog.getByRole("button", { name: "Need an account? Sign up" }).click();
   await authDialog.locator('input[name="identifier"]').fill(username);
   await authDialog.locator('input[name="email"]').fill(email);
   await authDialog.locator('input[name="password"]').fill("TempPass123!");
   await authDialog.getByRole("button", { name: "Create account" }).click();
   await expect(authDialog).toHaveCount(0, { timeout: 10000 });
+  await page.getByRole("button", { name: "Skip for now" }).click();
   await expectSignedIn(page);
 
   await logOut(page);
@@ -165,13 +167,14 @@ test("sign up, then sign back in using the username instead of email", async ({ 
 
   await page.goto("/");
   await menu(page, "Sign in / Sign up");
-  const authDialog = page.locator('[role="dialog"]').first();
+  const authDialog = page.getByRole('dialog', { name: /^(Sign in|Create account)$/ });
   await authDialog.getByRole("button", { name: "Need an account? Sign up" }).click();
   await authDialog.locator('input[name="identifier"]').fill(username);
   await authDialog.locator('input[name="email"]').fill(email);
   await authDialog.locator('input[name="password"]').fill("TempPass123!");
   await authDialog.getByRole("button", { name: "Create account" }).click();
   await expect(authDialog).toHaveCount(0, { timeout: 10000 });
+  await page.getByRole("button", { name: "Skip for now" }).click();
 
   await logOut(page);
   await menu(page, "Sign in / Sign up");

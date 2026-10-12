@@ -1,3 +1,7 @@
+# Current development update
+
+The active app remains in `2026-09-14/hel/work/GearDrop/`. For current features, local testing and required Supabase setup, see [completion setup](docs/geardrop-completion/SETUP.md). The feature list below describes the original demo and is not the full current inventory.
+
 # GearDrop
 
 > **Where the code lives:** the actual app (source, `package.json`, Supabase SQL) is at
