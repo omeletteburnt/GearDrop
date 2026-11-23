@@ -4,7 +4,7 @@ import { menu } from "../e2e/menu";
 import { generateKeyMaterial, unwrapPrivateKeyBytes, wrapPrivateKey } from "../../src/crypto";
 
 test("star favourites survive refresh, filter listings, and work with the keyboard",async({page})=>{
-  await page.goto('/');
+  await page.goto('/marketplace');
   const star=page.getByRole('button',{name:'Favourite Logitech G Pro X Superlight',exact:true});
   await star.focus();await page.keyboard.press('Enter');
   await expect(page.getByRole('button',{name:'Unfavourite Logitech G Pro X Superlight',exact:true})).toHaveAttribute('aria-pressed','true');
@@ -14,19 +14,30 @@ test("star favourites survive refresh, filter listings, and work with the keyboa
   await page.getByRole('button',{name:'Unfavourite Logitech G Pro X Superlight',exact:true}).click();await expect(page.locator('.card')).toHaveCount(0);
 });
 
-test("guest personalization updates the hero, preserves listing photos and resets",async({page})=>{
-  await page.goto('/');const photo=await page.locator('.card').filter({hasText:'Logitech G Pro X Superlight'}).locator('img').getAttribute('src');
+test("guest personalization updates the hero and suggested listings, preserves photos and resets",async({page})=>{
+  await page.goto('/marketplace');const photo=await page.locator('.card').filter({hasText:'Logitech G Pro X Superlight'}).locator('img').getAttribute('src');
   await page.getByRole('button',{name:'Personalize',exact:true}).click();const picker=page.getByRole('dialog',{name:'Personalize GearDrop'});
   await picker.getByRole('button',{name:/Creator setups/}).click();await picker.getByLabel('Gaming platform').selectOption('pc');await picker.getByRole('button',{name:'Save preferences'}).click();
-  await expect(page.locator('h1')).toHaveText('Make your setup stream-ready.');
   await expect(page.locator('.card').first()).toContainText(/Mics|Headsets/);
   await expect(page.locator('.card').filter({hasText:'Logitech G Pro X Superlight'}).locator('img')).toHaveAttribute('src',photo!);
-  await page.reload();await expect(page.locator('h1')).toHaveText('Make your setup stream-ready.');
-  await page.getByRole('button',{name:'Reset to default',exact:true}).click();await expect(page.locator('h1')).toContainText('Your next loadout');
+  await page.reload();await expect(page.getByText('Showing you: Creator', {exact:false})).toBeVisible();
+  await page.locator('.brand').click();await expect(page.locator('.hero h1')).toBeVisible();await expect(page.locator('.hero h1')).toHaveText('Make your setup stream-ready.');
+  const suggested = page.locator('.hero').getByRole('region', {name:'Check these out!'});
+  await expect(suggested.getByRole('article')).toHaveCount(3);
+  await expect(suggested.getByRole('article').first()).toContainText(/Mics|Headsets/);
+  const name = await suggested.getByRole('heading', {level:3}).first().innerText();
+  await suggested.getByRole('link', {name:`View listing for ${name}`}).click();
+  const detail = page.getByRole('dialog', {name});
+  await expect(detail).toBeVisible();
+  await detail.getByRole('button', {name:'Close',exact:true}).click();
+  await expect(page).toHaveURL('/marketplace');
+  await page.getByRole('button',{name:'Reset to default',exact:true}).click();
+  await page.locator('.brand').click();await expect(page.locator('.hero h1')).toContainText('Your next loadout');
+  await expect(suggested.getByRole('article').first()).toContainText("Seller's mouse");
 });
 
 test("seller edits price, structured specs and availability; outsiders have no edit control",async({page})=>{
-  await mockMarketplace(page,true);await page.goto('/');
+  await mockMarketplace(page,true);await page.goto('/marketplace');
   await page.getByRole('button',{name:/^View Seller's mouse,/}).click();
   await page.getByRole('button',{name:'Edit listing',exact:true}).click();const edit=page.getByRole('dialog',{name:'Edit listing'});
   await edit.getByLabel('Price (USD)').fill('42.50');await edit.getByLabel('Availability').selectOption('Sold');await edit.getByLabel('Value 1', {exact:true}).fill('55 g');
@@ -38,7 +49,7 @@ test("seller edits price, structured specs and availability; outsiders have no e
 });
 
 test("stacked profile modal closes alone and keeps the underlying listing scroll lock",async({page})=>{
-  await page.goto('/');await page.getByRole('button',{name:/^View Seller's mouse,/}).click();
+  await page.goto('/marketplace');await page.getByRole('button',{name:/^View Seller's mouse,/}).click();
   await page.getByRole('button',{name:/Sold by seller/}).click();const profile=page.getByRole('dialog',{name:/seller.s profile/});
   await expect(profile).toContainText('Member since');await expect(profile).toContainText('Selling now');
   await page.keyboard.press('Escape');await expect(profile).toHaveCount(0);await expect(page.getByRole('dialog',{name:"Seller's mouse"})).toBeVisible();
@@ -47,12 +58,12 @@ test("stacked profile modal closes alone and keeps the underlying listing scroll
 });
 
 test("account favourites/preferences stay separate from guest choices and Nyx receives enums",async({page})=>{
-  await mockMarketplace(page,true);await page.goto('/');
+  await mockMarketplace(page,true);await page.goto('/marketplace');
   await page.getByRole('button',{name:"Favourite Seller's mouse",exact:true}).click();await page.reload();await expect(page.getByRole('button',{name:"Unfavourite Seller's mouse",exact:true})).toHaveAttribute('aria-pressed','true');
   await menu(page,'Settings');const settings=page.getByRole('dialog',{name:'Account settings'});
   await settings.getByLabel('Gamer persona').selectOption('competitive');await settings.getByLabel('Gaming platform').selectOption('pc');await settings.getByRole('button',{name:'Save preferences'}).click();await expect(settings.getByRole('status')).toContainText('saved');await settings.getByRole('button',{name:'Close',exact:true}).click();
-  await page.reload();await expect(page.locator('h1')).toHaveText('Gear up for your next win.');
   await page.locator('nav').getByRole('link',{name:'Ask Nyx',exact:true}).click();
+  await expect(page.locator('.hero h1')).toBeVisible();await expect(page.locator('.hero h1')).toHaveText('Gear up for your next win.');
   await expect(page.locator('#nyx').getByText('15 of 15 questions left today')).toBeVisible();
   const request=page.waitForRequest(r=>r.url().includes('/functions/v1/nyx'));
   await page.getByLabel('Ask Nyx anything').fill('Which mouse should I choose?');await page.locator('#nyx').getByRole('button',{name:'Ask Nyx →',exact:true}).click();
@@ -70,7 +81,7 @@ test("recovery requests use a real email and reset validates passwords",async({p
 });
 
 test("new controls pass accessibility checks in both themes and on mobile",async({page})=>{
-  await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/');
+  await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/marketplace');
   for(const theme of ['light','dark']){await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);const result=await new AxeBuilder({page}).analyze();expect(result.violations).toEqual([]);}
   await page.getByRole('button',{name:'Personalize',exact:true}).click();const result=await new AxeBuilder({page}).analyze();expect(result.violations).toEqual([]);await page.keyboard.press('Escape');
   await page.setViewportSize({width:375,height:812});await page.getByRole('button',{name:'Personalize',exact:true}).click();await expect(page.getByRole('dialog')).toBeVisible();
@@ -81,7 +92,7 @@ test("new controls pass accessibility checks in both themes and on mobile",async
 test("failed seller updates and account saves show errors without changing listings",async({page})=>{
   await mockMarketplace(page,true);
   await page.route('**/rest/v1/listings**',async route=>{if(route.request().method()==='PATCH')await route.fulfill({status:403,json:{message:'Denied'}});else await route.fallback();});
-  await page.goto('/');await page.getByRole('button',{name:/^View Seller's mouse,/}).click();await page.getByRole('button',{name:'Edit listing',exact:true}).click();const edit=page.getByRole('dialog',{name:'Edit listing'});
+  await page.goto('/marketplace');await page.getByRole('button',{name:/^View Seller's mouse,/}).click();await page.getByRole('button',{name:'Edit listing',exact:true}).click();const edit=page.getByRole('dialog',{name:'Edit listing'});
   await edit.getByLabel('Price (USD)').fill('25');await edit.getByRole('button',{name:'Save listing'}).click();await expect(edit.getByRole('alert')).toContainText('Could not update');await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog',{name:"Seller's mouse"})).toContainText('$ 50');await page.keyboard.press('Escape');
   await page.route('**/rest/v1/favorites**',async route=>{if(route.request().method()==='POST')await route.fulfill({status:500,json:{message:'Missing table'}});else await route.fallback();});
@@ -120,7 +131,7 @@ test("chat opens the other participant's public profile and restores focus on cl
 });
 
 test("My profile owns private account details and ratings; Settings stays focused",async({page})=>{
-  await page.emulateMedia({reducedMotion:'reduce'});await mockMarketplace(page,true);await page.goto('/');
+  await page.emulateMedia({reducedMotion:'reduce'});await mockMarketplace(page,true);await page.goto('/marketplace');
   await expect(page.locator('#browse')).not.toContainText('Guest favourites are saved on this browser');
   await menu(page,'My profile');const profile=page.getByRole('dialog',{name:'My profile',exact:true});
   await expect(profile.locator('.settings-list')).toContainText('seller');await expect(profile.locator('.settings-list')).toContainText('seller@example.com');await expect(profile).toContainText('Your ratings');await expect(profile.getByRole('button',{name:'Change email',exact:true})).toBeVisible();

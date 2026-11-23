@@ -27,7 +27,7 @@ test("top bar keeps only the essentials; the ☰ menu holds the rest", async ({ 
   await expect(toggle).toBeFocused();
 
   await toggle.click();
-  await page.locator("h1").click();
+  await page.locator(".hero h1").click();
   await expect(panel).toHaveCount(0);
 
   await toggle.click();
@@ -53,7 +53,7 @@ test("sign in opens from the menu on the Privacy & Safety page too", async ({ pa
   await expect(page.locator('[role="dialog"]').first()).toBeVisible();
 });
 
-test("Home in the menu returns from Privacy & Safety to the marketplace top", async ({ page }) => {
+test("Home in the menu returns from Privacy & Safety to the homepage top", async ({ page }) => {
   await page.goto("/#privacy-safety-questions");
   await expect(page.locator(".safety-page")).toBeVisible();
   await page.locator("nav").getByRole("button", { name: "Menu" }).click();

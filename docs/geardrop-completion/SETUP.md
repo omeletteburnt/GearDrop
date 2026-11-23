@@ -16,6 +16,11 @@ listings changes the existing database, even though the website is on localhost.
 | No password recovery | Real-email recovery, new-password form, chat-backup rewrapping when the previous password is known; old keys preserved when it is forgotten |
 | Tests wrote production data | Default unit and mocked browser checks, explicitly guarded staging-only live tests, CI workflow with no deployment job |
 
+Browse and Explore the drop open `/marketplace`. Shop by Setup opens the same
+page with a category already selected. To compare two listings in that category,
+choose **Compare models** in each listing’s details. The second selection takes
+you to the comparison and its Ask Nyx panel below the results.
+
 Persona sorting applies to the unsearched All gear view. Explicit search and
 category filters preserve their existing order. Active personas put Available
 before Reserved and Sold; default preserves the original order. Listing photos

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type SyntheticEvent } from "react";
+import { Activity, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent, type SyntheticEvent } from "react";
+import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { categories, starterListings, type Category, type Listing } from "./data";
 import { canConfirmEmailRemoval, deleteListing, getSession, getUsername, REMOVE_EMAIL_FLAG, isAdmin, isEmailLike, loadListings, onSessionChange, saveListing, signIn, signOut, signUp, type Session } from "./supabase";
@@ -39,10 +40,71 @@ import { PreferenceContext, useMarketplace } from "./useMarketplace";
 import { PasswordReset, RecoveryRequest, useRecovery } from "./RecoveryUI";
 import "./marketplace.css";
 
+const marketplacePath = "/marketplace";
+
+function currentPage(url = new URL(location.href)) {
+  if (url.hash.startsWith("#privacy-safety")) return "safety";
+  return url.pathname.replace(/\/$/, "") === marketplacePath ? "marketplace" : "home";
+}
+
+function currentListingKey(url = new URL(location.href)) {
+  return currentPage(url) === "marketplace" ? url.searchParams.get("listing") : null;
+}
+
+function currentCategory(): Category | "All" {
+  const category = new URLSearchParams(location.search).get("category");
+  return categories.find(entry => entry.name === category)?.name ?? "All";
+}
+
+function pulseBackgroundPhotos(layer: HTMLDivElement | null) {
+  if (!layer) return;
+
+  const rhythm = ". . . . ... . . . .. . . . ";
+  const keyframes: Keyframe[] = [...rhythm].flatMap((beat, step) => beat === "." ? [
+    { scale: "1", offset: step / rhythm.length, easing: "ease-out" },
+    { scale: "1.025", offset: (step + 0.05) / rhythm.length, easing: "ease-out" },
+    { scale: "1", offset: (step + 0.3) / rhythm.length },
+  ] : []);
+  keyframes.push({ scale: "1", offset: 1 });
+
+  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  let animation: Animation | undefined;
+  const syncMotion = () => {
+    animation?.cancel();
+    if (!reducedMotion.matches) {
+      animation = layer.animate(keyframes, { duration: rhythm.length * 280, iterations: Infinity });
+      animation.id = "hero-photo-bass";
+    }
+  };
+
+  syncMotion();
+  reducedMotion.addEventListener("change", syncMotion);
+  return () => {
+    animation?.cancel();
+    reducedMotion.removeEventListener("change", syncMotion);
+  };
+}
+
+function floatWhenVisible(card: HTMLElement | null) {
+  if (!card) return;
+  const observer = new IntersectionObserver(([entry]) => {
+    if (entry.intersectionRatio < 0.4) return;
+    card.dataset.float = "true";
+    observer.disconnect();
+  }, { threshold: 0.4 });
+  observer.observe(card);
+  return () => observer.disconnect();
+}
+
 function App() {
-  const [items,setItems]=useState(starterListings); const [category,setCategory]=useState<Category|"All">("All");
+  const [items,setItems]=useState(starterListings); const [category,setCategory]=useState(currentCategory);
   const [search,setSearch]=useState(""); const [nyxDraft,setNyxDraft]=useState(""); const [nyxHi,setNyxHi]=useState(false); useEffect(()=>{if(!nyxHi)return;const t=setTimeout(()=>setNyxHi(false),1200);return()=>clearTimeout(t);},[nyxHi]);
-  const [selected,setSelected]=useState<Listing|null>(null); const [selling,setSelling]=useState(false); const [toast,setToast]=useState(""); useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(""),4000);return()=>clearTimeout(t);},[toast]); /* every message hides itself after 4 s */ const [session,setSession]=useState<Session|null>(null); const [admin,setAdmin]=useState(false); const [auth,setAuth]=useState(false); const [compare,setCompare]=useState<Listing[]>([]); const [deleteCandidate,setDeleteCandidate]=useState<Listing|null>(null);
+  const [localSelection, setLocalSelection] = useState<Listing | null>(null);
+  const [linkedListingKey, setLinkedListingKey] = useState(() => currentListingKey());
+  const selected = localSelection ?? (linkedListingKey
+    ? items.find(item => favoriteKey(item.id, item.databaseId) === linkedListingKey) ?? null
+    : null);
+  const [selling,setSelling]=useState(false); const [toast,setToast]=useState(""); useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(""),4000);return()=>clearTimeout(t);},[toast]); /* every message hides itself after 4 s */ const [session,setSession]=useState<Session|null>(null); const [admin,setAdmin]=useState(false); const [auth,setAuth]=useState(false); const [compare,setCompare]=useState<Listing[]>([]); const [deleteCandidate,setDeleteCandidate]=useState<Listing|null>(null);
   // Deliver any "waiting to deliver" messages whose recipient has since signed in.
   useEffect(()=>{if(session)deliverHeld(session.user.id).catch(()=>undefined);},[session?.user.id]);
   const market=useMarketplace(session,setToast);
@@ -55,44 +117,230 @@ function App() {
   // Back from the "remove my email" link: reopen My profile for the final confirm.
   useEffect(()=>{if(session&&localStorage.getItem(REMOVE_EMAIL_FLAG)&&canConfirmEmailRemoval(session))setMyProfile(true);},[session]); const [chat,setChat]=useState<Conversation|null>(null); const [profile,setProfile]=useState<ProfileTarget|null>(null); const [unread,refreshUnread]=useUnread(session);
   const [theme,setTheme]=useState<"light"|"dark">(() => window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-  const [page,setPage]=useState(()=>window.location.hash.startsWith("#privacy-safety")?"safety":"market");
+  const [returningHome, setReturningHome] = useState(false);
+  const [page, setPage] = useState(() => currentPage());
+  const route = useRef(location.href);
+  const transition = useRef<ViewTransition | null>(null);
+  const browseHeading = useRef<HTMLHeadingElement>(null);
+  const compareHeading = useRef<HTMLHeadingElement>(null);
+  const revealComparison = useRef(false);
+
+  function setSelected(item: Listing | null) {
+    if (currentListingKey() !== null) {
+      const url = new URL(location.href);
+      url.searchParams.delete("listing");
+      history.replaceState(history.state, "", url);
+      route.current = url.href;
+      setLinkedListingKey(null);
+    }
+    setLocalSelection(item);
+  }
+
+  function closeDetail() {
+    const wasLinked = currentListingKey() !== null;
+    setSelected(null);
+    if (!wasLinked) return;
+    const browseUrl = location.href;
+    requestAnimationFrame(() => {
+      if (location.href === browseUrl) browseHeading.current?.focus({ preventScroll: true });
+    });
+  }
+
+  function syncRoute() {
+    const nextUrl = location.href;
+    if (route.current === nextUrl) return;
+    const previousPage = currentPage(new URL(route.current));
+    const nextPage = currentPage();
+    const listingKey = currentListingKey();
+    route.current = nextUrl;
+    transition.current?.skipTransition();
+    transition.current = null;
+
+    const revealListing = () => {
+      if (listingKey && location.href === nextUrl) setLinkedListingKey(listingKey);
+    };
+
+    const update = () => {
+      if (location.href !== nextUrl) return;
+      flushSync(() => {
+        setPage(nextPage);
+        if (nextPage === "home" && previousPage !== "home") setReturningHome(true);
+        setCategory(currentCategory());
+        setLinkedListingKey(null);
+        if (listingKey) setLocalSelection(null);
+      });
+      if (location.hash === "#nyx") scrollToSection(document.getElementById("nyx"));
+      else if (location.hash !== "#privacy-safety-questions") {
+        window.scrollTo({ top: 0, behavior: "instant" });
+        if (previousPage === "safety") requestAnimationFrame(() => {
+          if (location.href === nextUrl) window.scrollTo({ top: 0, behavior: "instant" });
+        });
+      }
+    };
+
+    if (previousPage !== nextPage && previousPage !== "safety" && nextPage !== "safety" &&
+        document.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      const nextTransition = document.startViewTransition(update);
+      transition.current = nextTransition;
+      // Rapid navigation can skip a snapshot before it is ready.
+      void nextTransition.ready.catch(() => undefined);
+      void nextTransition.finished.then(() => {
+        if (transition.current === nextTransition) revealListing();
+      }, () => undefined);
+    } else {
+      update();
+      revealListing();
+    }
+  }
+
+  function navigate(href: string) {
+    const destination = new URL(href, location.href);
+    if (destination.href === location.href) {
+      if (destination.hash === "#nyx") scrollToSection(document.getElementById("nyx"));
+      else if (!destination.hash) window.scrollTo({ top: 0, behavior: "instant" });
+      return;
+    }
+    history.pushState(null, "", destination);
+    syncRoute();
+  }
+
+  function followRoute(event: MouseEvent<HTMLElement>) {
+    const link = (event.target as Element).closest<HTMLAnchorElement>("a[data-route]");
+    if (!link || event.defaultPrevented || event.button !== 0 ||
+        event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    if (link.closest(".categories")) {
+      setSearch("");
+      setFavoritesOnly(false);
+    }
+    navigate(link.href);
+  }
+
+  useEffect(() => {
+    window.addEventListener("popstate", syncRoute);
+    window.addEventListener("hashchange", syncRoute);
+    return () => {
+      window.removeEventListener("popstate", syncRoute);
+      window.removeEventListener("hashchange", syncRoute);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (page !== "marketplace" || compare.length !== 2 || !revealComparison.current) return;
+    revealComparison.current = false;
+    const frame = requestAnimationFrame(() => {
+      compareHeading.current?.focus({ preventScroll: true });
+      scrollToSection(compareHeading.current);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [compare, page]);
+
+  function filterCategory(category: Category | "All") {
+    const url = new URL(location.href);
+    if (category === "All") url.searchParams.delete("category");
+    else url.searchParams.set("category", category);
+    history.replaceState(history.state, "", url);
+    route.current = url.href;
+    setCategory(category);
+  }
+
+  function chooseComparison(item: Listing) {
+    const first = compare[0];
+    if (!compare.some(model => model.id === item.id)) {
+      const next = first?.category === item.category ? [first, item] : [item];
+      revealComparison.current = next.length === 2;
+      setCompare(next);
+    }
+    setSelected(null);
+    if (page !== "marketplace") navigate(`${marketplacePath}?category=${encodeURIComponent(item.category)}`);
+  }
   useEffect(()=>{document.documentElement.dataset.theme=theme;},[theme]);
   useEffect(()=>{getSession().then(setSession);return onSessionChange(setSession);},[]);
   useEffect(()=>{if(!session){setAdmin(false);return;}isAdmin().then(setAdmin);},[session]);
   // Listings are always sold under your real username (the database enforces this too).
   const [username,setUsername]=useState<string|null>(null);
   useEffect(()=>{if(!session){setUsername(null);return;}getUsername(session.user.id).then(setUsername);},[session?.user.id]);
-  useEffect(()=>{const update=()=>setPage(window.location.hash.startsWith("#privacy-safety")?"safety":"market");window.addEventListener("hashchange",update);return()=>window.removeEventListener("hashchange",update);},[]);const firstPage=useRef(true);useEffect(()=>{if(firstPage.current){firstPage.current=false;return;}/* switching pages: land on the linked section, else the top (the safety page handles its own Q&A link) */const id=window.location.hash.slice(1);const el=id?document.getElementById(id):null;if(page==="market"&&el)scrollToSection(el);else if(id!=="privacy-safety-questions")window.scrollTo(0,0);},[page]);
   const [listingsLoading,setListingsLoading]=useState(true);
   const [ratings,setRatings]=useState<Record<string,Rating>>({});
   const ownerKey=[...new Set(items.flatMap(x=>x.ownerId?[x.ownerId]:[]))].sort().join(",");
   const refreshRatings=()=>{ratingSummary(ownerKey?ownerKey.split(","):[]).then(setRatings).catch(()=>undefined);};
   useEffect(refreshRatings,[ownerKey]);
   useEffect(()=>{loadListings().then(remote=>{if(remote.length)setItems([...remote.map(item=>({...item,id:item.id+1000000})),...starterListings]);}).finally(()=>setListingsLoading(false));},[]);
+  useEffect(() => {
+    if (listingsLoading || !linkedListingKey || selected) return;
+    const databaseId = Number(/^listing:([1-9]\d*)$/.exec(linkedListingKey)?.[1]);
+    let cancelled = false;
+    const openOlderListing = async () => {
+      const [item] = Number.isSafeInteger(databaseId) ? await loadListings(databaseId) : [];
+      if (cancelled || currentListingKey() !== linkedListingKey) return;
+      if (item) setItems(items => [...items, { ...item, id: item.id + 1000000 }]);
+      else setToast("This listing could not be loaded.");
+    };
+    void openOlderListing();
+    return () => { cancelled = true; };
+  }, [linkedListingKey, listingsLoading, selected]);
   const shown=useMemo(()=>{
     const filtered=items.filter(x=>(category==="All"||x.category===category)&&(x.name+" "+x.description).toLowerCase().includes(search.toLowerCase())&&(!favoritesOnly||market.favorites.includes(favoriteKey(x.id,x.databaseId))));
     return category==="All"&&!search.trim()?personalizeListings(filtered,market.preferences.persona,market.preferences.platform):filtered;
   },[items,category,search,favoritesOnly,market.favorites,market.preferences]);
+  const suggested = useMemo(() => {
+    const available = items.filter(item => item.status === "Available");
+    return personalizeListings(available, market.preferences.persona, market.preferences.platform).slice(0, 3);
+  }, [items, market.preferences]);
   async function submit(e:FormEvent<HTMLFormElement>,urls:string[]):Promise<boolean>{e.preventDefault();if(!session){setSelling(false);setAuth(true);return false;}const f=new FormData(e.currentTarget);const details=String(f.get("details"));if(!username){setToast("Your profile is still loading. Please try again in a moment.");setTimeout(()=>setToast(""),4000);return false;}const draft={seller:username,name:String(f.get("name")||""),category:String(f.get("category")||""),price:String(f.get("price")||""),condition:String(f.get("condition")||""),description:String(f.get("description")||""),details};const validated=validateListing(draft);if("error" in validated){setToast(validated.error);setTimeout(()=>setToast(""),4000);return false;}const listing={...validated.value,status:"Available" as const,image:urls[0],photos:urls,specs:{Details:details||"Seller has not added specifications."},missing:details?[]:["Key specifications"]};if(!details&&!window.confirm("Are you sure you want to proceed? You are missing key specifications that buyers may be looking for."))return false;try{const saved=await saveListing(listing);setItems(old=>[{...saved,id:saved.id+1000000},...old]);setSelling(false);setToast("Your product is now listed. Good luck!");setTimeout(()=>setToast(""),4000);return true;}catch(error){setToast(error instanceof Error?error.message:"Could not save listing.");}setTimeout(()=>setToast(""),4000);return false;}
-  const navigation=<nav><div className="nav-left"><NavMenu session={session} unread={unread} onSignIn={()=>setAuth(true)} onMessages={()=>setInbox(true)} onProfile={()=>setMyProfile(true)} onSettings={()=>setSettings(true)} onLogout={async()=>{setChat(null);setProfile(null);setInbox(false);setSettings(false);setMyProfile(false);await clearLocalKeys();forgetConversationKeys();await signOut();setToast("You have been logged out.");}}/><a className="brand" href="#top">GEAR<span>DROP</span></a></div><div><a href="#browse">Browse</a><a href="#nyx">Ask Nyx</a>{admin&&<span className="admin-badge">Admin</span>}<button className="theme-toggle" onClick={()=>setTheme(theme==="light"?"dark":"light")} aria-label="Toggle colour theme">{theme==="light"?"☾":"☀"}</button><button className="sell" onClick={()=>session?setSelling(true):setAuth(true)}>+ Sell gear</button></div></nav>;
+  const navigation=<nav><div className="nav-left"><NavMenu session={session} unread={unread} onSignIn={()=>setAuth(true)} onMessages={()=>setInbox(true)} onProfile={()=>setMyProfile(true)} onSettings={()=>setSettings(true)} onLogout={async()=>{setChat(null);setProfile(null);setInbox(false);setSettings(false);setMyProfile(false);await clearLocalKeys();forgetConversationKeys();await signOut();setToast("You have been logged out.");}}/><a className="brand" href="/" data-route>GEAR<span>DROP</span></a></div><div><a href="/marketplace" data-route>Browse</a><a href="/#nyx" data-route>Ask Nyx</a>{admin&&<span className="admin-badge">Admin</span>}<button className="theme-toggle" onClick={()=>setTheme(theme==="light"?"dark":"light")} aria-label="Toggle colour theme">{theme==="light"?"☾":"☀"}</button><button className="sell" onClick={()=>session?setSelling(true):setAuth(true)}>+ Sell gear</button></div></nav>;
   async function messageSeller(item:Listing){if(!session){setSelected(null);setAuth(true);return;}if(!item.databaseId)return;try{const conv=await openConversation(item.databaseId);setSelected(null);setChat(conv);}catch(error){setToast(error instanceof Error?error.message:"Could not start this conversation.");setTimeout(()=>setToast(""),4000);}}
   const chatModals=session&&<>{inbox&&<Inbox session={session} close={()=>setInbox(false)} open={conv=>{setInbox(false);setChat(conv);}}/>}{chat&&<ChatWindow key={chat.id} session={session} conv={chat} close={()=>setChat(null)} onRead={refreshUnread} viewProfile={setProfile}/>}{myProfile&&<MyProfile session={session} admin={admin} close={()=>setMyProfile(false)}/>} {settings&&<Settings notify={setToast} session={session} admin={admin} close={()=>setSettings(false)} preferences={market.preferences} savePreferences={market.save}/>}</>;
-  const accountExtras=<>{picker&&<PersonaPicker value={market.preferences} save={market.save} close={()=>setPicker(false)}/>} {recoveryRequest&&<RecoveryRequest close={()=>setRecoveryRequest(false)}/>} {recovery.recovering&&<PasswordReset close={recovery.finish} notify={setToast}/>} {editingListing&&<EditListing item={editingListing} close={()=>setEditingListing(null)} saved={updated=>{setItems(old=>old.map(l=>l.id===updated.id?updated:l));setSelected(updated);setCompare(old=>old.map(l=>l.id===updated.id?updated:l));setToast("Listing updated.");}}/>}</>;
-  if(page==="safety")return <PreferenceContext.Provider value={market.preferences}><main>{navigation}<SafetyPage/>{selling&&<Sell username={username} userId={session?.user.id} close={()=>setSelling(false)} submit={submit}/>}{auth&&<Auth close={()=>setAuth(false)} complete={completeAuth} onForgot={()=>{setAuth(false);setRecoveryRequest(true);}}/>}{chatModals}{accountExtras}{profile&&<ProfilePopup key={profile.id} target={profile} listings={items} viewerId={session?.user.id} admin={admin} close={()=>setProfile(null)} openListing={l=>{setProfile(null);setChat(null);setSelected(l);if(page==="safety")window.location.hash="#browse";}} onReviewsChange={refreshRatings}/>}{toast&&<div className="toast" role="status">{toast}</div>}</main></PreferenceContext.Provider>;
-  return <PreferenceContext.Provider value={market.preferences}><main>
+  const accountExtras=<>{picker&&<PersonaPicker value={market.preferences} save={market.save} close={()=>setPicker(false)}/>} {recoveryRequest&&<RecoveryRequest close={()=>setRecoveryRequest(false)}/>} {recovery.recovering&&<PasswordReset close={recovery.finish} notify={setToast}/>} {editingListing&&<EditListing item={editingListing} close={()=>setEditingListing(null)} saved={updated=>{setItems(old=>old.map(l=>l.id===updated.id?updated:l));if(localSelection)setLocalSelection(updated);setCompare(old=>old.map(l=>l.id===updated.id?updated:l));setToast("Listing updated.");}}/>}</>;
+  return <PreferenceContext.Provider value={market.preferences}><main onClick={followRoute}>
     {navigation}
-    <section className="stack hero" id="top" data-persona={market.preferences.persona} style={market.preferences.persona==="default"?undefined:{backgroundImage:`linear-gradient(90deg,rgba(12,7,24,.94),rgba(12,7,24,.82)),url(https://images.unsplash.com/${personaCopy.scene}?auto=format&fit=crop&w=1600&q=80)`}}><i className="stack-dim" aria-hidden="true"/><div className="orbs" aria-hidden="true"><i/><i/><i/></div><div className="hero-strips" aria-hidden="true">{["photo-1527814050087-3793815479db","photo-1587829741301-dc798b83add3","photo-1599669454699-248893623440","photo-1590602847861-f357a9332bbc","photo-1546435770-a3e426bf472b","photo-1615663245857-ac93bb7c39e7","photo-1505740420928-5e560c06d30e"].map(id=><img key={id} src={`https://images.unsplash.com/${id}?auto=format&fit=crop&w=300&q=60`} alt=""/>)}</div><div><p className="eyebrow">{personaCopy.eyebrow}</p><h1>{market.preferences.persona==="default"?<>Your next <i>loadout</i><br/>is already here.</>:personaCopy.title}</h1><p>{personaCopy.description}</p><a className="cta" href="#browse">Explore the drop ↓</a></div><div className="hero-gallery"><figure><img src={safeImageUrl(starterListings[1].image)} onError={onImgError} alt="Gaming keyboard"/><span className="price-tag">${starterListings[1].price}</span></figure><figure><img src={safeImageUrl(starterListings[0].image)} onError={onImgError} alt="Gaming mouse"/><span className="price-tag">${starterListings[0].price}</span></figure><figure><img src={safeImageUrl(starterListings[4].image)} onError={onImgError} alt="Gaming laptop"/><span className="price-tag">${starterListings[4].price}</span></figure></div></section>
-    <section className="stack categories-section"><i className="stack-dim" aria-hidden="true"/><p className="eyebrow">SHOP BY SETUP</p><h2>What are you hunting for?</h2><div className="categories">{categories.map(c=><button className={category===c.name?"active":""} onClick={()=>{setCategory(c.name);scrollToSection(document.querySelector("#browse"));}} key={c.name}><b>{c.icon}</b><span>{c.name}</span><small>{c.hint}</small></button>)}</div></section>
+    {page === "safety" && <SafetyPage />}
+    <Activity mode={page === "home" ? "visible" : "hidden"}>
+    <div className="route-content" data-page="home" data-returning={returningHome || undefined}>
+    <section className="stack hero" id="top" data-persona={market.preferences.persona} style={market.preferences.persona==="default"?undefined:{backgroundImage:`linear-gradient(90deg,rgba(12,7,24,.94),rgba(12,7,24,.82)),url(https://images.unsplash.com/${personaCopy.scene}?auto=format&fit=crop&w=1600&q=80)`}}><i className="stack-dim" aria-hidden="true"/><div className="orbs" aria-hidden="true"><i/><i/><i/></div><div className="hero-strips" ref={pulseBackgroundPhotos} aria-hidden="true">{["photo-1527814050087-3793815479db","photo-1587829741301-dc798b83add3","photo-1599669454699-248893623440","photo-1590602847861-f357a9332bbc","photo-1546435770-a3e426bf472b","photo-1615663245857-ac93bb7c39e7","photo-1505740420928-5e560c06d30e"].map(id=><img key={id} src={`https://images.unsplash.com/${id}?auto=format&fit=crop&w=300&q=60`} alt=""/>)}</div><div><p className="eyebrow">{personaCopy.eyebrow}</p><h1>{market.preferences.persona==="default"?<>Your next <i>loadout</i><br/>is already here.</>:personaCopy.title}</h1><p>{personaCopy.description}</p><a className="cta" href="/marketplace" data-route>Explore the drop ↓</a></div>
+      <div className="hero-gallery"><figure><img src={safeImageUrl(starterListings[1].image)} onError={onImgError} alt="Gaming keyboard"/><span className="price-tag">${starterListings[1].price}</span></figure><figure><img src={safeImageUrl(starterListings[0].image)} onError={onImgError} alt="Gaming mouse"/><span className="price-tag">${starterListings[0].price}</span></figure><figure><img src={safeImageUrl(starterListings[4].image)} onError={onImgError} alt="Gaming laptop"/><span className="price-tag">${starterListings[4].price}</span></figure></div>
+      <section className="recommendations" aria-labelledby="suggested-listings-title">
+        <h2 id="suggested-listings-title">Check these out!</h2>
+        {suggested.length ? <div className="recommendation-grid">
+          {suggested.map(item => <article className="rec" key={item.id} ref={floatWhenVisible}>
+            <img src={safeImageUrl(item.image)} onError={onImgError} alt=""/>
+            <div>
+              <h3>{item.name}</h3>
+              <b>${item.price}</b>
+              <p>{item.category} · {item.condition}</p>
+              <a href={`${marketplacePath}?listing=${encodeURIComponent(favoriteKey(item.id, item.databaseId))}`} data-route
+                aria-label={`View listing for ${item.name}`}>View listing</a>
+            </div>
+          </article>)}
+        </div> : <p>No listings are available right now.</p>}
+      </section>
+    </section>
+    <section className="stack categories-section"><i className="stack-dim" aria-hidden="true"/><p className="eyebrow">SHOP BY SETUP</p><h2>What are you hunting for?</h2><div className="categories">{categories.map(c=><a href={`${marketplacePath}?category=${encodeURIComponent(c.name)}`} data-route key={c.name}><b>{c.icon}</b><span>{c.name}</span><small>{c.hint}</small></a>)}</div></section>
+    <section className="stack marketplace-invite" aria-labelledby="marketplace-invite-title">
+      <i className="stack-dim" aria-hidden="true"/>
+      <div>
+        <p className="eyebrow">The Marketplace <span aria-hidden="true">✦</span></p>
+        <h2 id="marketplace-invite-title">Take a look at the marketplace!</h2>
+        <p>Desirable equipment is waiting for you. Snatch those deals!</p>
+      </div>
+      <a className="cta" href={marketplacePath} data-route>Browse marketplace</a>
+    </section>
     <section className="stack nyx" id="nyx"><i className="stack-dim" aria-hidden="true"/><div className="orbs" aria-hidden="true"><i/><i/><i/></div><div><p className="eyebrow">MEET NYX ✦</p><h2>Ask about a setup,<br/>not just a listing.</h2><p>Nyx is GearDrop’s AI assistant. It searches the real listings on GearDrop, knows its way around PCs, laptops, keyboards, mice, mics and headsets, and explains things in plain gamer language.</p><button className="nyx-wave" onClick={()=>{setNyxDraft(personaCopy.greeting);setNyxHi(true);}}>Say hi to Nyx ✦</button></div><div className="nyx-panel"><NyxMascot greet={nyxHi}/><NyxThread session={session} items={items} onOpen={setSelected} requestSignIn={()=>setAuth(true)} label="Ask Nyx anything" placeholder="I have $2000 for a gaming PC, what can I get on GearDrop?" saveable draft={nyxDraft} onDraftUsed={()=>setNyxDraft("")}/><button className="example" onClick={()=>setNyxDraft(personaCopy.example)}>Try an example</button></div></section>
-    <section className="stack browse" id="browse"><i className="stack-dim" aria-hidden="true"/><div className="section-title"><div><p className="eyebrow">FRESH DROPS</p><h2>Browse the marketplace</h2></div><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search gear..."/></div><div className="filters"><button className={category==="All"?"active":""} onClick={()=>setCategory("All")}>All gear</button>{categories.map(c=><button className={category===c.name?"active":""} onClick={()=>setCategory(c.name)} key={c.name}>{c.name}</button>)}</div><div className="personalize-row"><span>Showing you: {personaCopy.label}</span><button className="btn secondary" onClick={()=>setPicker(true)} disabled={!market.ready}>{market.preferences.persona==="default"?"Personalize":"Change"}</button>{market.preferences.persona!=="default"&&<button className="example" onClick={()=>market.save(DEFAULT_PREFERENCES).catch(e=>setToast(e.message))}>Reset to default</button>}<button className="btn secondary" aria-pressed={favoritesOnly} onClick={()=>setFavoritesOnly(!favoritesOnly)}>★ Favourites</button></div><div className="listing-grid">{listingsLoading?Array.from({length:8}).map((_,i)=><div className="card-skeleton" key={i} aria-hidden="true"/>):shown.length===0?<div className="empty">{favoritesOnly?"No favourites match this view. Star a listing or clear your filters.":<>✦ Nyx couldn't find gear matching {search?`"${search}"`:"that filter"}{category!=="All"?` in ${category}`:""}. Try a different search or category.</>}</div>:shown.map(item=><div className="listing-tile" key={item.id}><Card item={item} rating={item.ownerId?ratings[item.ownerId]?.asSeller:undefined} onOpen={setSelected}/><button className="favorite-star" aria-label={`${market.favorites.includes(favoriteKey(item.id,item.databaseId))?"Unfavourite":"Favourite"} ${item.name}`} aria-pressed={market.favorites.includes(favoriteKey(item.id,item.databaseId))} disabled={!market.ready||market.busy} onClick={()=>market.toggleFavorite(favoriteKey(item.id,item.databaseId))}>{market.favorites.includes(favoriteKey(item.id,item.databaseId))?"★":"☆"}</button></div>)}</div></section>
-    <section className="stack compare-section"><i className="stack-dim" aria-hidden="true"/><p className="eyebrow">MODEL MATCHUP</p><h2>Want to compare models?</h2><p>Choose a listing, then click <b>Compare models</b> on that listing to select another model in the same category.</p>{compare.length===0&&<div className="compare-empty">No models selected yet.</div>}{compare.length===1&&<div className="compare-empty">{compare[0].name} selected. Open another {compare[0].category} listing and click Compare models.</div>}{compare.length===2&&<div className="compare-workspace"><div className="compare-table"><div className="compare-head"></div>{compare.map(item=><div className="compare-head" key={item.id}><img src={safeImageUrl(item.image)} onError={onImgError} alt=""/><b>{item.name}</b><span>${item.price}</span></div>)}{["Condition","Availability","Specifications","Missing information"].map(label=><div className="compare-row" key={label}><b>{label}</b>{compare.map(item=><div key={item.id}>{label==="Condition"?item.condition:label==="Availability"?item.status:label==="Specifications"?Object.entries(item.specs).map(([k,v])=><small key={k}>{k}: {v}</small>):item.missing.length?item.missing.join(", "):"No key details missing"}</div>)}</div>)}</div><aside className="compare-nyx"><NyxThread heading={<><h3>Ask Nyx about these models</h3><p>Nyx uses both listings’ details plus its own gear knowledge.</p></>} key={compare.map(x=>x.id).join("-")} session={session} items={items} onOpen={setSelected} requestSignIn={()=>setAuth(true)} mode="compare" focusIds={compare.map(x=>x.id)} label="Your question" placeholder="Which is better for FPS?"/><button className="btn ghost" onClick={()=>setCompare([])}>Clear comparison</button></aside></div>}</section>
-    {selected&&<Detail edit={()=>setEditingListing(selected)} item={selected} close={()=>setSelected(null)} compare={compare} canDelete={Boolean(session&&selected.databaseId&&(admin||selected.ownerId===session.user.id))} own={Boolean(session&&selected.ownerId===session.user.id)} message={()=>messageSeller(selected)} rating={selected.ownerId?ratings[selected.ownerId]?.asSeller:undefined} viewProfile={()=>selected.ownerId&&setProfile({id:selected.ownerId,name:selected.seller,role:"seller"})} session={session} items={items} open={setSelected} requestSignIn={()=>{setSelected(null);setAuth(true);}} requestDelete={()=>setDeleteCandidate(selected)} choose={(item)=>{setCompare(old=>old.length===0?[item]:old.some(x=>x.id===item.id)?old:old[0].category===item.category?[old[0],item]:[item]);setSelected(null);scrollToSection(document.querySelector(".compare-section"));}}/>} {deleteCandidate&&<DeleteConfirm cancel={()=>setDeleteCandidate(null)} confirm={async()=>{if(!session||!deleteCandidate.databaseId)return;try{await deleteListing(deleteCandidate.databaseId);void removeListingPhotos(deleteCandidate.photos??[]);setItems(old=>old.filter(item=>item.id!==deleteCandidate.id));setSelected(null);setDeleteCandidate(null);setToast("Listing is now removed.");}catch(error){setDeleteCandidate(null);setToast(error instanceof Error?error.message:"Could not remove listing.");}setTimeout(()=>setToast(""),4000);}}/>} {selling&&<Sell username={username} userId={session?.user.id} close={()=>setSelling(false)} submit={submit}/>} {auth&&<Auth close={()=>setAuth(false)} complete={completeAuth} onForgot={()=>{setAuth(false);setRecoveryRequest(true);}}/>} {chatModals} {accountExtras} {profile&&<ProfilePopup key={profile.id} target={profile} listings={items} viewerId={session?.user.id} admin={admin} close={()=>setProfile(null)} openListing={l=>{setProfile(null);setChat(null);setSelected(l);if(page==="safety")window.location.hash="#browse";}} onReviewsChange={refreshRatings}/>} {toast&&<div className="toast">{toast}</div>}
+    </div>
+    </Activity>
+    <Activity mode={page === "marketplace" ? "visible" : "hidden"}>
+    <div className="route-content" data-page="marketplace">
+    <section className="browse" id="browse"><div className="section-title"><div><p className="eyebrow">FRESH DROPS</p><h1 ref={browseHeading} tabIndex={-1}>Browse the marketplace</h1></div><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search gear..." aria-label="Search gear"/></div><div className="filters"><button className={category==="All"?"active":""} aria-pressed={category==="All"} onClick={()=>filterCategory("All")}>All gear</button>{categories.map(c=><button className={category===c.name?"active":""} aria-pressed={category===c.name} onClick={()=>filterCategory(c.name)} key={c.name}>{c.name}</button>)}</div><div className="personalize-row"><span>Showing you: {personaCopy.label}</span><button className="btn secondary" onClick={()=>setPicker(true)} disabled={!market.ready}>{market.preferences.persona==="default"?"Personalize":"Change"}</button>{market.preferences.persona!=="default"&&<button className="example" onClick={()=>market.save(DEFAULT_PREFERENCES).catch(e=>setToast(e.message))}>Reset to default</button>}<button className="btn secondary" aria-pressed={favoritesOnly} onClick={()=>setFavoritesOnly(!favoritesOnly)}>★ Favourites</button></div><div className="listing-grid">{listingsLoading?Array.from({length:8}).map((_,i)=><div className="card-skeleton" key={i} aria-hidden="true"/>):shown.length===0?<div className="empty">{favoritesOnly?"No favourites match this view. Star a listing or clear your filters.":<>✦ Nyx couldn't find gear matching {search?`"${search}"`:"that filter"}{category!=="All"?` in ${category}`:""}. Try a different search or category.</>}</div>:shown.map(item=><div className="listing-tile" key={item.id}><Card item={item} rating={item.ownerId?ratings[item.ownerId]?.asSeller:undefined} onOpen={setSelected}/><button className="favorite-star" aria-label={`${market.favorites.includes(favoriteKey(item.id,item.databaseId))?"Unfavourite":"Favourite"} ${item.name}`} aria-pressed={market.favorites.includes(favoriteKey(item.id,item.databaseId))} disabled={!market.ready||market.busy} onClick={()=>market.toggleFavorite(favoriteKey(item.id,item.databaseId))}>{market.favorites.includes(favoriteKey(item.id,item.databaseId))?"★":"☆"}</button></div>)}</div></section>
+    <section className="compare-section"><p className="eyebrow">MODEL MATCHUP</p><h2 ref={compareHeading} tabIndex={-1}>Want to compare models?</h2><p>Choose a listing, then click <b>Compare models</b> on that listing to select another model in the same category.</p>{compare.length===0&&<div className="compare-empty">No models selected yet.</div>}{compare.length===1&&<div className="compare-empty">{compare[0].name} selected. Open another {compare[0].category} listing and click Compare models.</div>}{compare.length===2&&<div className="compare-workspace"><div className="compare-table"><div className="compare-head"></div>{compare.map(item=><div className="compare-head" key={item.id}><img src={safeImageUrl(item.image)} onError={onImgError} alt=""/><b>{item.name}</b><span>${item.price}</span></div>)}{["Condition","Availability","Specifications","Missing information"].map(label=><div className="compare-row" key={label}><b>{label}</b>{compare.map(item=><div key={item.id}>{label==="Condition"?item.condition:label==="Availability"?item.status:label==="Specifications"?Object.entries(item.specs).map(([k,v])=><small key={k}>{k}: {v}</small>):item.missing.length?item.missing.join(", "):"No key details missing"}</div>)}</div>)}</div><aside className="compare-nyx"><NyxThread heading={<><h3>Ask Nyx about these models</h3><p>Nyx uses both listings’ details plus its own gear knowledge.</p></>} key={compare.map(x=>x.id).join("-")} session={session} items={items} onOpen={setSelected} requestSignIn={()=>setAuth(true)} mode="compare" focusIds={compare.map(x=>x.id)} label="Your question" placeholder="Which is better for FPS?"/><button className="btn ghost" onClick={()=>setCompare([])}>Clear comparison</button></aside></div>}</section>
+    </div>
+    </Activity>
+    {selected&&<Detail edit={()=>setEditingListing(selected)} item={selected} close={closeDetail} compare={compare} canDelete={Boolean(session&&selected.databaseId&&(admin||selected.ownerId===session.user.id))} own={Boolean(session&&selected.ownerId===session.user.id)} message={()=>messageSeller(selected)} rating={selected.ownerId?ratings[selected.ownerId]?.asSeller:undefined} viewProfile={()=>selected.ownerId&&setProfile({id:selected.ownerId,name:selected.seller,role:"seller"})} session={session} items={items} open={setSelected} requestSignIn={()=>{setSelected(null);setAuth(true);}} requestDelete={()=>setDeleteCandidate(selected)} choose={chooseComparison}/>} {deleteCandidate&&<DeleteConfirm cancel={()=>setDeleteCandidate(null)} confirm={async()=>{if(!session||!deleteCandidate.databaseId)return;try{await deleteListing(deleteCandidate.databaseId);void removeListingPhotos(deleteCandidate.photos??[]);setItems(old=>old.filter(item=>item.id!==deleteCandidate.id));setSelected(null);setDeleteCandidate(null);setToast("Listing is now removed.");}catch(error){setDeleteCandidate(null);setToast(error instanceof Error?error.message:"Could not remove listing.");}setTimeout(()=>setToast(""),4000);}}/>} {selling&&<Sell username={username} userId={session?.user.id} close={()=>setSelling(false)} submit={submit}/>} {auth&&<Auth close={()=>setAuth(false)} complete={completeAuth} onForgot={()=>{setAuth(false);setRecoveryRequest(true);}}/>} {chatModals} {accountExtras} {profile&&<ProfilePopup key={profile.id} target={profile} listings={items} viewerId={session?.user.id} admin={admin} close={()=>setProfile(null)} openListing={l=>{setProfile(null);setChat(null);setSelected(l);if(page==="safety")navigate(marketplacePath);}} onReviewsChange={refreshRatings}/>} {toast&&<div className="toast" role="status">{toast}</div>}
   </main></PreferenceContext.Provider>;
 }
 
 function onImgError(e:SyntheticEvent<HTMLImageElement>){e.currentTarget.onerror=null;e.currentTarget.src="/placeholder-product.svg";}
 function statusVariant(status:Listing["status"]){return status==="Available"?"ok":status==="Reserved"?"warn":"bad";}
-function Card({item,onOpen,rating}:{item:Listing;onOpen:(item:Listing)=>void;rating?:Rating["asSeller"]}){const open=()=>onOpen(item);return <div className="card" tabIndex={0} role="button" aria-label={`View ${item.name}, $${item.price}, ${item.condition}, ${item.status}`} onClick={open} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();open();}}}><div className="product-art"><img src={safeImageUrl(item.image)} onError={onImgError} alt={item.name}/><span className={`tag-badge ${statusVariant(item.status)}`}>{item.status}</span></div><div><small>{item.category}</small><h3>{item.name}</h3><p><b>{item.price}</b> <em>· {item.condition}</em></p><small>Listed {item.posted}</small>{rating&&rating.count>0&&<small className="card-rating" aria-label={`Seller rated ${rating.avg.toFixed(1)} out of 5 from ${rating.count} reviews`}>★ {rating.avg.toFixed(1)} ({rating.count})</small>}</div></div>;}
+function Card({item,onOpen,rating}:{item:Listing;onOpen:(item:Listing)=>void;rating?:Rating["asSeller"]}){const open=()=>onOpen(item);return <div className="card" tabIndex={0} role="button" aria-label={`View ${item.name}, $${item.price}, ${item.condition}, ${item.status}`} onClick={open} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();open();}}}><div className="product-art"><img src={safeImageUrl(item.image)} onError={onImgError} alt={item.name}/><span className={`tag-badge ${statusVariant(item.status)}`}>{item.status}</span></div><div><small>{item.category}</small><h2>{item.name}</h2><p><b>{item.price}</b> <em>· {item.condition}</em></p><small>Listed {item.posted}</small>{rating&&rating.count>0&&<small className="card-rating" aria-label={`Seller rated ${rating.avg.toFixed(1)} out of 5 from ${rating.count} reviews`}>★ {rating.avg.toFixed(1)} ({rating.count})</small>}</div></div>;}
 // The listing's photos: the cover large, thumbnails to switch when there are more.
 function Gallery({item}:{item:Listing}){const pics=item.photos?.length?item.photos:[item.image];const[i,setI]=useState(0);const at=Math.min(i,pics.length-1);return <figure className="gallery"><img src={safeImageUrl(pics[at])} onError={onImgError} alt={pics.length>1?`${item.name}, photo ${at+1} of ${pics.length}`:item.name}/>{pics.length>1&&<div className="gallery-thumbs">{pics.map((p,j)=><button key={p} aria-label={`Show photo ${j+1}`} aria-pressed={j===at} onClick={()=>setI(j)}><img src={safeImageUrl(p)} onError={onImgError} alt=""/></button>)}</div>}</figure>;}
 function Detail({edit,item,close,compare,choose,canDelete,requestDelete,own,message,rating,viewProfile,session,items,open,requestSignIn}:{edit:()=>void;item:Listing;close:()=>void;compare:Listing[];choose:(item:Listing)=>void;canDelete:boolean;requestDelete:()=>void;own:boolean;message:()=>void;rating?:Rating["asSeller"];viewProfile:()=>void;session:Session|null;items:Listing[];open:(l:Listing)=>void;requestSignIn:()=>void}){const wrongCategory=compare.length===1&&compare[0].category!==item.category;const ref=useRef<HTMLDivElement>(null);useModalA11y(ref,close);return <div className="overlay" onMouseDown={overlayClick(close)}><div className="detail" ref={ref} role="dialog" aria-modal="true" aria-label={item.name}><button className="close" onClick={close} aria-label="Close">×</button><Gallery item={item}/><div><p className="eyebrow">{item.category} · {item.status}</p><h2>{item.name}</h2><p className="price">$ {item.price}</p>{item.ownerId&&<div className="seller-rating"><button className="example" onClick={viewProfile}>Sold by {item.seller} · <RatingBadge rating={rating}/></button></div>}<p>{item.description}</p><div className="specs">{Object.entries(item.specs).map(([key,value])=><div key={key}><small>{key}</small><b>{value}</b></div>)}</div>{item.missing.length>0&&<div className="missing"><b>Nyx noticed missing information</b><p>Ask the seller about: {item.missing.join(", ")}.</p></div>}<div className="ask-product"><NyxThread heading={<b>Ask Nyx about this listing</b>} key={item.id} session={session} items={items} onOpen={open} requestSignIn={requestSignIn} mode="listing" focusIds={[item.id]} label="Your question" placeholder="Is this good for competitive gaming?"/></div><button className="btn primary" disabled={!item.databaseId||own} onClick={message}>{!item.databaseId?"Demo listing — no real seller":own?"This is your listing":`Message ${item.seller}`}</button><button className="btn secondary compare-button" disabled={wrongCategory} onClick={()=>choose(item)}>{wrongCategory?`Choose another ${compare[0].category} model`:`Compare models${compare.length===1?" with selected model":""}`}</button>{own&&item.databaseId&&<button className="btn secondary" onClick={edit}>Edit listing</button>}{canDelete&&<button className="btn destructive" onClick={requestDelete}>Delete listing</button>}</div></div></div>;}

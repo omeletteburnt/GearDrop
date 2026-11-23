@@ -1,4 +1,5 @@
 {
+  "rewrites": [{ "source": "/marketplace", "destination": "/index.html" }],
   "headers": [
     {
       "source": "/(.*)",

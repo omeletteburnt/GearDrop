@@ -6,10 +6,11 @@ import { expect, test } from "../offline/fixture";
 // sign-up -> create listing -> delete) are full-coverage work for
 // Phase 11, once the UI has stable selectors to target after the
 // design-system rollout.
-test("home page loads with the marketplace and Nyx sections", async ({ page }) => {
+test("home page loads with setup shortcuts and Nyx", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveTitle(/GearDrop/);
   await expect(page.locator("nav .brand")).toBeVisible();
-  await expect(page.locator("#browse")).toBeVisible();
+  await expect(page.locator(".categories")).toBeVisible();
+  await expect(page.locator("#browse")).toBeHidden();
   await expect(page.locator("#nyx")).toBeVisible();
 });

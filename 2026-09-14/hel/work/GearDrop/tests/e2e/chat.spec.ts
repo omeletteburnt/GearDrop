@@ -4,7 +4,7 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 import { menu, expectSignedIn } from "./menu";
 
 test("demo listings can't be messaged", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/marketplace");
   await page.locator(".card", { hasText: "Logitech G Pro X Superlight" }).click();
   const button = page.locator('[role="dialog"]').getByRole("button", { name: "Demo listing — no real seller" });
   await expect(button).toBeDisabled();
@@ -31,7 +31,7 @@ async function makeUser(tag: string) {
 
 async function signedInPage(browser: Browser, email: string): Promise<Page> {
   const page = await (await browser.newContext()).newPage();
-  await page.goto("/");
+  await page.goto("/marketplace");
   await menu(page, "Sign in / Sign up");
   const dialog = page.locator('[role="dialog"]');
   await dialog.locator('input[name="identifier"]').fill(email);

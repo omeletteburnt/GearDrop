@@ -32,7 +32,7 @@ test.describe("accessibility (axe)", () => {
   });
 
   test("detail sheet — dark theme", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/marketplace");
     await page.evaluate(() => { document.documentElement.dataset.theme = "dark"; });
     await page.locator(".card").first().click();
     await page.locator('[role="dialog"]').waitFor();

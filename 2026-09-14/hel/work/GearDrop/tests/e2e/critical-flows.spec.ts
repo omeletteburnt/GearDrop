@@ -5,7 +5,7 @@ import { png } from "./png";
 const suffix = Date.now();
 
 test("browse -> detail -> compare two models in the same category", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/marketplace");
 
   // Open the first mouse listing's detail sheet from the browse grid.
   await page.locator(".card", { hasText: "Logitech G Pro X Superlight" }).click();
@@ -110,6 +110,7 @@ test("sign-up -> create a listing -> delete it", async ({ page }) => {
   await sellDialog.getByRole("button", { name: /publish listing/i }).click();
   await expect(sellDialog).toHaveCount(0, { timeout: 10000 });
 
+  await page.getByRole("link", { name: "Browse", exact: true }).click();
   const newCard = page.locator(".card", { hasText: listingName });
   await expect(newCard).toBeVisible();
   await newCard.click();

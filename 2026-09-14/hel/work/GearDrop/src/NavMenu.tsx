@@ -32,14 +32,14 @@ export function NavMenu({ session, unread, onSignIn, onMessages, onProfile, onSe
       {unread > 0 && <span className="unread-badge" aria-hidden="true">{unread}</span>}
     </button>
     {open && <div className="nav-menu-panel" id="nav-menu-panel" aria-label="Menu">
-      <a href="#top" onClick={() => close()}>Home</a>
+      <a href="/" data-route onClick={() => close()}>Home</a>
       {!session && <button type="button" onClick={pick(onSignIn)}>Sign in / Sign up</button>}
       {session && <button type="button" onClick={pick(onMessages)} aria-label={unread ? `Messages, ${unread} unread` : "Messages"}>
         Messages{unread > 0 && <span className="unread-badge" aria-hidden="true">{unread}</span>}
       </button>}
       {session && <button type="button" onClick={pick(onProfile)}>My profile</button>}
       {session && <button type="button" onClick={pick(onSettings)}>Settings</button>}
-      <a href="#privacy-safety-questions" onClick={() => close()}>Privacy &amp; Safety</a>
+      <a href="/#privacy-safety-questions" data-route onClick={() => close()}>Privacy &amp; Safety</a>
       {session && (confirming
         ? <div className="nav-menu-confirm" role="group" aria-label="Confirm log out">
             <p>Log out of GearDrop?</p>

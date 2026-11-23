@@ -2,7 +2,7 @@ import { expect, test } from "../offline/fixture";
 
 test.describe("detail sheet accessibility", () => {
   test("locks body scroll, traps focus, and closes on Escape", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/marketplace");
     await page.locator(".card").first().click();
 
     const dialog = page.locator('[role="dialog"]').first();
@@ -20,7 +20,7 @@ test.describe("detail sheet accessibility", () => {
   });
 
   test("clicking the backdrop closes the sheet", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/marketplace");
     await page.locator(".card").first().click();
     const dialog = page.locator('[role="dialog"]').first();
     await expect(dialog).toBeVisible();

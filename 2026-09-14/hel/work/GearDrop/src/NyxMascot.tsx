@@ -186,8 +186,8 @@ export function NyxMascot({ greet }: { greet: boolean }) {
       if (r.bottom < NAV || r.top > innerHeight) return; // not on screen
       // Only for a cursor over his own section: check what's actually under it, since the
       // next section (or the top bar, or a popup) can cover his while it stays pinned.
-      const sec = el.closest("main > .stack");
-      if (!sec || document.elementFromPoint(cx, cy)?.closest("main > .stack") !== sec) return;
+      const sec = el.closest(".route-content > .stack");
+      if (!sec || document.elementFromPoint(cx, cy)?.closest(".route-content > .stack") !== sec) return;
       const mx = r.left + r.width / 2, my = r.top + r.height / 2, rad = r.width * .46;
       const to = reachArms(mx, my, rad, cx, cy); if (!to) return;
       setArms({ pair: to, cx: mx, cy: my, r: r.width / 2 + 10 }); reaching = true;
@@ -267,7 +267,7 @@ export function NyxMascot({ greet }: { greet: boolean }) {
     const update = () => {
       frame = 0;
       const el = spot.current, o = bye.current; if (!el || !o) return;
-      const next = el.closest("main > .stack")?.nextElementSibling;
+      const next = el.closest(".route-content > .stack")?.nextElementSibling;
       const r = el.getBoundingClientRect();
       const edge = next ? next.getBoundingClientRect().top : Infinity;
       const full = on.matches ? byeState(edge, r.bottom, innerHeight) : byeState(Infinity, 0, innerHeight);

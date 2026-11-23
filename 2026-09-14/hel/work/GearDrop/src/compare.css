@@ -1,5 +1,5 @@
 .compare-section{padding:85px 7vw;background:var(--surface-2)}
-.compare-section h2{font-size:38px}
+.compare-section h2{font-size:38px;scroll-margin-top:90px}
 .compare-section>p:not(.eyebrow){max-width:680px;line-height:1.55;color:var(--text-soft)}
 .compare-empty{padding:var(--sp-5);background:var(--surface);border:1px dashed var(--border);border-radius:var(--radius-m);color:var(--text-soft)}
 .compare-workspace{display:grid;grid-template-columns:1.5fr .75fr;gap:var(--sp-5);margin-top:var(--sp-6)}

@@ -48,7 +48,7 @@ const QA: [string, [string, string][]][] = [
 const JUMPS: [string, string][] = [["Security", "safety-security"], ["Privacy", "safety-privacy"], ["Tips", "safety-tips"], ["Q&A", "safety-questions"]];
 
 // Buttons, not #links: the URL hash decides which page is shown.
-const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
 
 export function SafetyPage() {
   useEffect(() => { if (window.location.hash === "#privacy-safety-questions") jump("safety-questions"); }, []);
@@ -92,6 +92,6 @@ export function SafetyPage() {
         <p>If a listing or user seems suspicious: stop replying, don't send money or personal details, block them from the chat, and report that listing.</p></div>
     </section>
 
-    <a className="back-market" href="#top">← Back to marketplace</a>
+    <a className="back-market" href="/marketplace" data-route>← Back to marketplace</a>
   </section>;
 }

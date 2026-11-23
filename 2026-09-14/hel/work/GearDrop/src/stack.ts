@@ -27,12 +27,13 @@ export function stackState(top: number, height: number, nextTop: number | null, 
 // Pinned sections confuse the browser's own jump-to-anchor, so jump to where
 // the section really starts in the page (sum of the sections above it).
 export function scrollToSection(target: Element | null) {
-  const el = target?.closest<HTMLElement>("main > .stack");
-  if (el && el === el.parentElement!.querySelector(":scope > .stack")) { scrollTo({ top: 0, behavior: "smooth" }); return; } // first section = page top
-  if (!el || !matchMedia(MEDIA).matches) { target?.scrollIntoView({ behavior: "smooth" }); return; }
+  const el = target?.closest<HTMLElement>(".route-content > .stack");
+  const behavior = matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth";
+  if (el && el === el.parentElement!.querySelector(":scope > .stack")) { scrollTo({ top: 0, behavior }); return; } // first section = page top
+  if (!el || !matchMedia(MEDIA).matches) { target?.scrollIntoView({ behavior }); return; }
   let top = el.parentElement!.getBoundingClientRect().top + scrollY;
   for (let s = el.previousElementSibling; s; s = s.previousElementSibling) top += (s as HTMLElement).offsetHeight;
-  scrollTo({ top: top - NAV, behavior: "smooth" });
+  scrollTo({ top: top - NAV, behavior });
 }
 
 type Css = Partial<Record<"top" | "zIndex" | "transform" | "scale" | "filter" | "visibility", string>>;
@@ -48,18 +49,19 @@ export function installStack() {
   document.addEventListener("click", e => {
     const a = (e.target as Element | null)?.closest<HTMLAnchorElement>('a[href^="#"]');
     const target = a && a.getAttribute("href")!.length > 1 ? document.querySelector(a.getAttribute("href")!) : null;
-    if (!target?.closest("main > .stack")) return;
+    if (!target?.closest(".route-content > .stack")) return;
     e.preventDefault(); history.replaceState(null, "", a!.getAttribute("href")); scrollToSection(target);
   });
   const on = matchMedia(MEDIA);
   let frame = 0;
   const update = () => {
     frame = 0;
-    const els = [...document.querySelectorAll<HTMLElement>("main > .stack")];
+    const els = [...document.querySelectorAll<HTMLElement>(".route-content > .stack")];
     if (!on.matches) {
       els.forEach(el => { if (last.has(el)) { el.removeAttribute("style"); el.querySelector<HTMLElement>(":scope > .stack-dim")?.removeAttribute("style"); last.delete(el); } });
       return;
     }
+    if (els[0]?.parentElement?.offsetHeight === 0) return;
     const vh = innerHeight;
     // read everything first, then write. Shrink and tilt pivot on the bottom edge,
     // so bottom minus layout height is the true top, unaffected by our own effects.
@@ -68,7 +70,7 @@ export function installStack() {
       const s = stackState(tops[i], heights[i], tops[i + 1] ?? null, vh);
       const tilt = i === 0 ? 0 : s.tilt;
       write(el, {
-        top: `${s.stick}px`, zIndex: String(i + 1),
+        top: el.classList.contains("hero") ? "" : `${s.stick}px`, zIndex: String(i + 1),
         transform: tilt > .05 ? `perspective(1400px) rotateX(${tilt}deg)` : "",
         scale: s.cover > 0 ? (1 - s.cover * .05).toFixed(3) : "",
         filter: s.blur ? `blur(${s.blur}px)` : "",

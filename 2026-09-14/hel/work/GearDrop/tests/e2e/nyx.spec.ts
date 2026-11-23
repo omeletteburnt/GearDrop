@@ -96,6 +96,7 @@ test("listing and compare boxes send their listings to Nyx; errors and the daily
   await page.goto("/");
   await signUp(page, "c");
 
+  await page.getByRole("link", { name: "Browse", exact: true }).click();
   await page.locator(".card", { hasText: "Logitech G Pro X Superlight" }).click();
   const detail = page.getByRole("dialog", { name: "Logitech G Pro X Superlight" });
   await detail.getByLabel("Your question").fill("Good for FPS?");

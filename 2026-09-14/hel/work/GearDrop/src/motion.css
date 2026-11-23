@@ -11,6 +11,10 @@
   .hero-gallery figure:nth-child(2){animation-delay:.47s}
   .hero-gallery figure:nth-child(3){animation-delay:.59s}
 
+  [data-returning] .hero,
+  [data-returning] .hero>div:not([class])>*,
+  [data-returning] .hero-gallery figure{animation:none}
+
   /* gentle parallax while the hero scrolls away */
   @supports (animation-timeline: scroll()) {
     .hero>.hero-strips{animation:parallax-slow linear both;animation-timeline:scroll(root);animation-range:0 600px}
@@ -20,6 +24,8 @@
   /* gear photos straighten and lift on hover */
   .hero-gallery figure{transition:transform .3s var(--ease),box-shadow .3s var(--ease)}
   .hero-gallery figure:nth-child(n):hover{transform:rotate(0) translateY(-6px);z-index:4;box-shadow:var(--shadow-2),0 12px 30px rgba(109,60,199,.35)}
+
+  .hero::after{animation:wind-flow 16s linear infinite}
 
   /* buttons press in */
   button:not(:disabled),.cta{transition-property:background,color,border-color,box-shadow,transform,scale;transition-duration:var(--dur-1);transition-timing-function:var(--ease)}
@@ -32,6 +38,25 @@
   .orbs i{animation:orb-drift 26s ease-in-out infinite alternate}
   .orbs i:nth-child(2){animation-duration:32s;animation-delay:-9s}
   .orbs i:nth-child(3){animation-duration:22s;animation-delay:-15s}
+}
+
+.rec:is(:hover,:focus-within){
+  border-color:var(--brass);
+  box-shadow:var(--shadow-2),0 0 24px rgba(185,138,255,.34)
+}
+@media (prefers-reduced-motion: no-preference) {
+  .rec{transition:transform .48s var(--ease),box-shadow .48s var(--ease),border-color .48s var(--ease)}
+  .rec>img{transition:scale .52s var(--ease)}
+  .rec[data-float="true"]{animation:recommendation-float 4s ease-in-out}
+  .rec:nth-child(2){animation-delay:.14s}
+  .rec:nth-child(3){animation-delay:.28s}
+  .rec:is(:hover,:focus-within){transform:translateY(-9px);animation-play-state:paused}
+  .rec:is(:hover,:focus-within)>img{scale:1.06}
+}
+@keyframes recommendation-float{
+  0%,100%{translate:0 0}
+  30%{translate:0 -7px}
+  70%{translate:0 4px}
 }
 
 /* listing cards: a soft purple glow joins the existing lift */
@@ -56,14 +81,36 @@
 @keyframes parallax-fast{to{translate:0 -50px}}
 @keyframes pill-in{from{scale:.94}to{scale:1}}
 @keyframes ripple{to{scale:22;opacity:0}}
+@keyframes wind-flow{from{background-position:0 0,0 0}to{background-position:340px 0,800px 0}}
 @keyframes orb-drift{0%{translate:0 0}50%{translate:60px 40px}100%{translate:-40px 70px}}
 
 /* stacking homepage sections (driven by stack.ts) — tablets/desktops only */
 @media (min-width: 700px) and (prefers-reduced-motion: no-preference) {
-  main>.stack{position:sticky;top:76px;animation:none;transform-origin:50% 100%}
-  main>.stack:not(:first-of-type){border-radius:24px 24px 0 0;box-shadow:0 -18px 40px rgba(8,6,16,.28)}
+  .route-content>.stack{position:sticky;top:76px;animation:none;transform-origin:50% 100%}
+  .route-content>.hero{position:relative;top:auto}
+  .route-content>.stack:not(:first-of-type){border-radius:24px 24px 0 0;box-shadow:0 -18px 40px rgba(8,6,16,.28)}
   .categories-section.stack,.browse.stack{background:var(--bg)}
   .stack-dim{position:absolute;inset:0;z-index:50;pointer-events:none;border-radius:inherit;background:#07050d;opacity:0}
 }
 .stack-dim{display:none}
 @media (min-width: 700px) and (prefers-reduced-motion: no-preference){.stack-dim{display:block}}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root{view-transition-name:none}
+  main>nav{view-transition-name:site-nav}
+  [data-page="home"]{view-transition-name:home-content}
+  [data-page="marketplace"]{view-transition-name:marketplace-content}
+  ::view-transition-group(site-nav){z-index:1;animation:none}
+  ::view-transition-old(site-nav){display:none}
+  ::view-transition-new(site-nav){animation:none}
+  ::view-transition-group(home-content),
+  ::view-transition-group(marketplace-content){animation:none}
+  ::view-transition-old(home-content){animation:route-out-right 200ms ease both}
+  ::view-transition-new(home-content){animation:route-in-right 200ms ease both}
+  ::view-transition-old(marketplace-content){animation:route-out-left 200ms ease both}
+  ::view-transition-new(marketplace-content){animation:route-in-left 200ms ease both}
+}
+@keyframes route-out-right{to{opacity:0;transform:translateX(24px)}}
+@keyframes route-in-right{from{opacity:0;transform:translateX(24px)}}
+@keyframes route-out-left{to{opacity:0;transform:translateX(-24px)}}
+@keyframes route-in-left{from{opacity:0;transform:translateX(-24px)}}

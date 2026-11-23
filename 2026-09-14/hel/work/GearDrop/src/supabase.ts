@@ -169,9 +169,14 @@ export async function signOut() {
 }
 
 const LISTING_COLUMNS = "id,owner_id,name,category,price,condition,status,image,description,specs,missing,seller,created_at";
-export async function loadListings(): Promise<Listing[]> {
+export async function loadListings(databaseId?: number): Promise<Listing[]> {
   if (!url || !key) return [];
-  const query = (cols: string) => supabase.from("listings").select(cols).order("created_at", { ascending: false }).limit(200);
+  const query = (cols: string) => {
+    const listings = supabase.from("listings").select(cols);
+    return databaseId === undefined
+      ? listings.order("created_at", { ascending: false }).limit(200)
+      : listings.eq("id", databaseId).limit(1);
+  };
   let { data, error } = await query(`${LISTING_COLUMNS},photos`);
   if (error) ({ data, error } = await query(LISTING_COLUMNS)); // before supabase-photos-setup.sql has been run
   if (error || !data) return [];
